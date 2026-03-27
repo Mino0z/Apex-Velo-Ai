@@ -1,33 +1,32 @@
 import React, { useState } from 'react';
-import axios from 'axios'; // Zaimportowany Axios do komunikacji
+import axios from 'axios';
 import { MapContainer, TileLayer, Polyline, Marker, Popup } from 'react-leaflet';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { Bike, Wind, Shield, Zap } from 'lucide-react';
+import { Bike, Wind, Shield, Zap, Info } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
-// Przykładowa baza trasy (Mock Data)
 const mockRoute = [
   [50.0647, 19.9450], [50.0614, 19.9365], [50.0580, 19.9340], [50.0520, 19.9400]
 ];
 
-// Początkowe dane wykresu
 const initialNoiseData = [
   { time: '0%', db: 45 }, { time: '25%', db: 65 }, { time: '50%', db: 50 },
   { time: '75%', db: 70 }, { time: '100%', db: 40 }
 ];
 
 function App() {
-  // --- TUTAJ JEST LOGIKA JAVASCRIPT ---
   const [safetyWeight, setSafetyWeight] = useState(50);
   const [ecoWeight, setEcoWeight] = useState(50);
-  const [currentRoute, setCurrentRoute] = useState(mockRoute); // <--- Dodaj to!
+  const [currentRoute, setCurrentRoute] = useState(mockRoute);
   const [noiseData, setNoiseData] = useState(initialNoiseData);
   const [loading, setLoading] = useState(false);
+  const [backendStatus, setBackendStatus] = useState("System gotowy");
 
   const generateRoute = async () => {
     setLoading(true);
+    setBackendStatus("Łączenie z silnikiem analizy...");
     
-    // 1. "PSUCIE" TRASY (Symulacja, żeby jury widziało, że trasa się przelicza)
+    // 1. "PSUCIE" TRASY (Dla efektu wizualnego)
     const wiggledRoute = currentRoute.map(p => [
       p[0] + (Math.random() - 0.5) * 0.002, 
       p[1] + (Math.random() - 0.5) * 0.002
@@ -41,7 +40,7 @@ function App() {
     }));
     setNoiseData(randomData);
 
-    // 3. Wysłanie danych do Pythona (Backend)
+    // 3. Wysłanie danych do Pythona
     try {
       const response = await axios.get('http://127.0.0.1:8000/api/test', {
         params: {
@@ -49,15 +48,16 @@ function App() {
           eco: ecoWeight
         }
       });
-      console.log("Odpowiedź z backendu:", response.data);
+      // Tu odbieramy wiadomość z Twojego nowego main.py!
+      setBackendStatus(response.data.message);
+      console.log("Dane z backendu:", response.data);
     } catch (error) {
-      console.error("Błąd połączenia z main.py (backend jeszcze nie gotowy):", error);
+      setBackendStatus("Błąd: Backend nie odpowiada.");
+      console.error(error);
     } finally {
-      // Ustawiamy lekkie opóźnienie, żeby napis "GENEROWANIE..." był widoczny
       setTimeout(() => setLoading(false), 800);
     }
   };
-  // --- KONIEC LOGIKI JS ---
 
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100vw', fontFamily: 'Inter, sans-serif', overflow: 'hidden' }}>
@@ -69,6 +69,12 @@ function App() {
           <h2 style={{ margin: 0, fontSize: '1.5rem' }}>SafeTransit</h2>
         </div>
 
+        {/* STATUS Z BACKENDU */}
+        <div style={{ background: '#0f172a', padding: '10px', borderRadius: '8px', borderLeft: '4px solid #22c55e', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Info size={16} color="#22c55e" />
+          <span>{backendStatus}</span>
+        </div>
+
         <div style={{ background: '#334155', padding: '15px', borderRadius: '10px' }}>
           <p style={{ margin: '0 0 10px 0', fontSize: '0.9rem', color: '#94a3b8' }}>PREFERENCJE TRASY</p>
           
@@ -77,7 +83,12 @@ function App() {
               <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><Shield size={14}/> Bezpieczeństwo</span>
               <span>{safetyWeight}%</span>
             </label>
-            <input type="range" style={{ width: '100%', accentColor: '#22c55e' }} value={safetyWeight} onChange={(e) => setSafetyWeight(e.target.value)} />
+            <input 
+              type="range" 
+              style={{ width: '100%', accentColor: '#22c55e' }} 
+              value={safetyWeight} 
+              onChange={(e) => setSafetyWeight(Number(e.target.value))}
+            />
           </div>
 
           <div>
@@ -85,7 +96,12 @@ function App() {
               <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><Wind size={14}/> Ekologia (Zieleń)</span>
               <span>{ecoWeight}%</span>
             </label>
-            <input type="range" style={{ width: '100%', accentColor: '#22c55e' }} value={ecoWeight} onChange={(e) => setEcoWeight(e.target.value)} />
+            <input 
+              type="range" 
+              style={{ width: '100%', accentColor: '#22c55e' }} 
+              value={ecoWeight} 
+              onChange={(e) => setEcoWeight(Number(e.target.value))}
+            />
           </div>
         </div>
 
@@ -115,7 +131,6 @@ function App() {
         </button>
       </div>
 
-      {/* MAPA */}
       <div style={{ flexGrow: 1, position: 'relative' }}>
         <MapContainer center={[50.0614, 19.9365]} zoom={14} style={{ height: '100%', width: '100%' }}>
           <TileLayer
