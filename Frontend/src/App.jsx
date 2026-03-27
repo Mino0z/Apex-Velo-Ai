@@ -20,20 +20,28 @@ function App() {
   // --- TUTAJ JEST LOGIKA JAVASCRIPT ---
   const [safetyWeight, setSafetyWeight] = useState(50);
   const [ecoWeight, setEcoWeight] = useState(50);
+  const [currentRoute, setCurrentRoute] = useState(mockRoute); // <--- Dodaj to!
   const [noiseData, setNoiseData] = useState(initialNoiseData);
   const [loading, setLoading] = useState(false);
 
   const generateRoute = async () => {
     setLoading(true);
     
-    // 1. Symulacja zmiany wykresu (żeby jury widziało, że coś się dzieje)
+    // 1. "PSUCIE" TRASY (Symulacja, żeby jury widziało, że trasa się przelicza)
+    const wiggledRoute = currentRoute.map(p => [
+      p[0] + (Math.random() - 0.5) * 0.002, 
+      p[1] + (Math.random() - 0.5) * 0.002
+    ]);
+    setCurrentRoute(wiggledRoute);
+
+    // 2. Symulacja zmiany wykresu
     const randomData = noiseData.map(d => ({
       ...d,
-      db: Math.floor(Math.random() * 40) + 35 // losuje hałas 35-75 dB
+      db: Math.floor(Math.random() * 40) + 35 
     }));
     setNoiseData(randomData);
 
-    // 2. Wysłanie danych do Pythona przez Axios
+    // 3. Wysłanie danych do Pythona (Backend)
     try {
       const response = await axios.get('http://127.0.0.1:8000/api/test', {
         params: {
@@ -42,11 +50,11 @@ function App() {
         }
       });
       console.log("Odpowiedź z backendu:", response.data);
-      // alert("Połączono z Pythonem! Sprawdź konsolę (F12).");
     } catch (error) {
-      console.error("Błąd połączenia z main.py:", error);
+      console.error("Błąd połączenia z main.py (backend jeszcze nie gotowy):", error);
     } finally {
-      setLoading(false);
+      // Ustawiamy lekkie opóźnienie, żeby napis "GENEROWANIE..." był widoczny
+      setTimeout(() => setLoading(false), 800);
     }
   };
   // --- KONIEC LOGIKI JS ---
@@ -114,7 +122,7 @@ function App() {
             attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
             url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
           />
-          <Polyline positions={mockRoute} color="#22c55e" weight={5} opacity={0.7} dashArray="10, 10" />
+          <Polyline positions={currentRoute} color="#22c55e" weight={5} opacity={0.7} dashArray="10, 10" />
           <Marker position={[50.0647, 19.9450]}><Popup>Start</Popup></Marker>
           <Marker position={[50.0520, 19.9400]}><Popup>Koniec</Popup></Marker>
         </MapContainer>
