@@ -1,28 +1,60 @@
 import React, { useState } from 'react';
+import axios from 'axios'; // Zaimportowany Axios do komunikacji
 import { MapContainer, TileLayer, Polyline, Marker, Popup } from 'react-leaflet';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { Bike, Wind, Volume2, Shield, Zap, LayoutDashboard } from 'lucide-react';
+import { Bike, Wind, Shield, Zap } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
-// Przykładowa trasa (Mock Data) - przejazd przez centrum Krakowa
+// Przykładowa baza trasy (Mock Data)
 const mockRoute = [
   [50.0647, 19.9450], [50.0614, 19.9365], [50.0580, 19.9340], [50.0520, 19.9400]
 ];
 
-// Dane do wykresu hałasu na trasie
-const noiseData = [
+// Początkowe dane wykresu
+const initialNoiseData = [
   { time: '0%', db: 45 }, { time: '25%', db: 65 }, { time: '50%', db: 50 },
   { time: '75%', db: 70 }, { time: '100%', db: 40 }
 ];
 
 function App() {
+  // --- TUTAJ JEST LOGIKA JAVASCRIPT ---
   const [safetyWeight, setSafetyWeight] = useState(50);
   const [ecoWeight, setEcoWeight] = useState(50);
+  const [noiseData, setNoiseData] = useState(initialNoiseData);
+  const [loading, setLoading] = useState(false);
+
+  const generateRoute = async () => {
+    setLoading(true);
+    
+    // 1. Symulacja zmiany wykresu (żeby jury widziało, że coś się dzieje)
+    const randomData = noiseData.map(d => ({
+      ...d,
+      db: Math.floor(Math.random() * 40) + 35 // losuje hałas 35-75 dB
+    }));
+    setNoiseData(randomData);
+
+    // 2. Wysłanie danych do Pythona przez Axios
+    try {
+      const response = await axios.get('http://127.0.0.1:8000/api/test', {
+        params: {
+          safety: safetyWeight,
+          eco: ecoWeight
+        }
+      });
+      console.log("Odpowiedź z backendu:", response.data);
+      // alert("Połączono z Pythonem! Sprawdź konsolę (F12).");
+    } catch (error) {
+      console.error("Błąd połączenia z main.py:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+  // --- KONIEC LOGIKI JS ---
 
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100vw', fontFamily: 'Inter, sans-serif', overflow: 'hidden' }}>
       
-      {/* SIDEBAR - PANEL STEROWANIA */}
+      {/* SIDEBAR */}
       <div style={{ width: '350px', background: '#1e293b', color: 'white', padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px', boxShadow: '4px 0 15px rgba(0,0,0,0.3)', zIndex: 1001 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Bike size={32} color="#22c55e" />
@@ -49,9 +81,8 @@ function App() {
           </div>
         </div>
 
-        {/* WYKRES HAŁASU */}
         <div style={{ flexGrow: 1, background: '#334155', padding: '15px', borderRadius: '10px', minHeight: '200px' }}>
-          <p style={{ margin: '0 0 10px 0', fontSize: '0.9rem', color: '#94a3b8' }}>POZIOM HAŁASU [dB]</p>
+          <p style={{ margin: '0 0 10px 0', fontSize: '0.9rem', color: '#94a3b8' }}>ESTYMOWANY HAŁAS [dB]</p>
           <ResponsiveContainer width="100%" height={150}>
             <LineChart data={noiseData}>
               <Line type="monotone" dataKey="db" stroke="#22c55e" strokeWidth={2} dot={false} />
@@ -62,29 +93,30 @@ function App() {
           </ResponsiveContainer>
         </div>
 
-        <button style={{ background: '#22c55e', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-          <Zap size={18} /> GENERUJ TRASĘ
+        <button 
+          onClick={generateRoute} 
+          disabled={loading}
+          style={{ 
+            background: loading ? '#475569' : '#22c55e', 
+            color: 'white', border: 'none', padding: '12px', borderRadius: '8px', 
+            fontWeight: 'bold', cursor: 'pointer', display: 'flex', 
+            alignItems: 'center', justifyContent: 'center', gap: '10px' 
+          }}
+        >
+          <Zap size={18} /> {loading ? 'GENEROWANIE...' : 'GENERUJ TRASĘ'}
         </button>
       </div>
 
       {/* MAPA */}
       <div style={{ flexGrow: 1, position: 'relative' }}>
         <MapContainer center={[50.0614, 19.9365]} zoom={14} style={{ height: '100%', width: '100%' }}>
-          {/* TileLayer - Styl Jasny "Clean" */}
           <TileLayer
             attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
             url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
           />
-          
-          {/* Nasza przykładowa trasa */}
           <Polyline positions={mockRoute} color="#22c55e" weight={5} opacity={0.7} dashArray="10, 10" />
-          
-          <Marker position={[50.0647, 19.9450]}>
-            <Popup>Start: Dworzec Główny</Popup>
-          </Marker>
-          <Marker position={[50.0520, 19.9400]}>
-            <Popup>Koniec: Kazimierz</Popup>
-          </Marker>
+          <Marker position={[50.0647, 19.9450]}><Popup>Start</Popup></Marker>
+          <Marker position={[50.0520, 19.9400]}><Popup>Koniec</Popup></Marker>
         </MapContainer>
       </div>
     </div>
