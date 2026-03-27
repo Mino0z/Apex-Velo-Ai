@@ -1,26 +1,92 @@
-import React from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import React, { useState } from 'react';
+import { MapContainer, TileLayer, Polyline, Marker, Popup } from 'react-leaflet';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { Bike, Wind, Volume2, Shield, Zap, LayoutDashboard } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
+// Przykładowa trasa (Mock Data) - przejazd przez centrum Krakowa
+const mockRoute = [
+  [50.0647, 19.9450], [50.0614, 19.9365], [50.0580, 19.9340], [50.0520, 19.9400]
+];
+
+// Dane do wykresu hałasu na trasie
+const noiseData = [
+  { time: '0%', db: 45 }, { time: '25%', db: 65 }, { time: '50%', db: 50 },
+  { time: '75%', db: 70 }, { time: '100%', db: 40 }
+];
+
 function App() {
-  // Współrzędne centrum Krakowa (Rynek Główny)
-  const centerKrakow = [50.0614, 19.9365];
+  const [safetyWeight, setSafetyWeight] = useState(50);
+  const [ecoWeight, setEcoWeight] = useState(50);
 
   return (
-    <div style={{ height: '100vh', width: '100%' }}>
-      <h2 style={{ textAlign: 'center', position: 'absolute', zIndex: 1000, width: '100%', background: 'rgba(255,255,255,0.8)' }}>
-        SafeTransit: Mapa Krakowa
-      </h2>
+    <div style={{ display: 'flex', height: '100vh', width: '100vw', fontFamily: 'Inter, sans-serif', overflow: 'hidden' }}>
       
-      <MapContainer center={centerKrakow} zoom={13} style={{ height: '100%', width: '100%' }}>
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        <Marker position={centerKrakow}>
-          <Popup>Tu zaczynamy naszą bezpieczną trasę!</Popup>
-        </Marker>
-      </MapContainer>
+      {/* SIDEBAR - PANEL STEROWANIA */}
+      <div style={{ width: '350px', background: '#1e293b', color: 'white', padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px', boxShadow: '4px 0 15px rgba(0,0,0,0.3)', zIndex: 1001 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <Bike size={32} color="#22c55e" />
+          <h2 style={{ margin: 0, fontSize: '1.5rem' }}>SafeTransit</h2>
+        </div>
+
+        <div style={{ background: '#334155', padding: '15px', borderRadius: '10px' }}>
+          <p style={{ margin: '0 0 10px 0', fontSize: '0.9rem', color: '#94a3b8' }}>PREFERENCJE TRASY</p>
+          
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><Shield size={14}/> Bezpieczeństwo</span>
+              <span>{safetyWeight}%</span>
+            </label>
+            <input type="range" style={{ width: '100%', accentColor: '#22c55e' }} value={safetyWeight} onChange={(e) => setSafetyWeight(e.target.value)} />
+          </div>
+
+          <div>
+            <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><Wind size={14}/> Ekologia (Zieleń)</span>
+              <span>{ecoWeight}%</span>
+            </label>
+            <input type="range" style={{ width: '100%', accentColor: '#22c55e' }} value={ecoWeight} onChange={(e) => setEcoWeight(e.target.value)} />
+          </div>
+        </div>
+
+        {/* WYKRES HAŁASU */}
+        <div style={{ flexGrow: 1, background: '#334155', padding: '15px', borderRadius: '10px', minHeight: '200px' }}>
+          <p style={{ margin: '0 0 10px 0', fontSize: '0.9rem', color: '#94a3b8' }}>POZIOM HAŁASU [dB]</p>
+          <ResponsiveContainer width="100%" height={150}>
+            <LineChart data={noiseData}>
+              <Line type="monotone" dataKey="db" stroke="#22c55e" strokeWidth={2} dot={false} />
+              <XAxis dataKey="time" hide />
+              <YAxis hide domain={[0, 100]} />
+              <Tooltip contentStyle={{ background: '#1e293b', border: 'none', color: '#fff', fontSize: '12px' }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        <button style={{ background: '#22c55e', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+          <Zap size={18} /> GENERUJ TRASĘ
+        </button>
+      </div>
+
+      {/* MAPA */}
+      <div style={{ flexGrow: 1, position: 'relative' }}>
+        <MapContainer center={[50.0614, 19.9365]} zoom={14} style={{ height: '100%', width: '100%' }}>
+          {/* TileLayer - Styl Jasny "Clean" */}
+          <TileLayer
+            attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
+            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+          />
+          
+          {/* Nasza przykładowa trasa */}
+          <Polyline positions={mockRoute} color="#22c55e" weight={5} opacity={0.7} dashArray="10, 10" />
+          
+          <Marker position={[50.0647, 19.9450]}>
+            <Popup>Start: Dworzec Główny</Popup>
+          </Marker>
+          <Marker position={[50.0520, 19.9400]}>
+            <Popup>Koniec: Kazimierz</Popup>
+          </Marker>
+        </MapContainer>
+      </div>
     </div>
   );
 }
