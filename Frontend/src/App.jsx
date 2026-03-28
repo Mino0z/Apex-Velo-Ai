@@ -2,18 +2,18 @@ import React, { useState } from 'react';
 import { MapContainer, TileLayer, Polyline, CircleMarker, Popup } from 'react-leaflet';
 import { 
   Bike, Zap, Activity, LayoutDashboard, Map as MapIcon, 
-  Search, Bell, Radio, Wind, Navigation, Edit3,
-  BarChart3, Layers, ShieldAlert, Thermometer, FileText, PlusCircle
+  Search, Bell, Radio, Navigation, Edit3,
+  BarChart3, Layers, ShieldAlert, Thermometer, FileText, PlusCircle,
+  Settings, Heart, Leaf, Gauge, Trash2, CheckCircle2, RefreshCw, ChevronDown
 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
-// Dane testowe
+// --- DATA MOCKS ---
 const routes = {
   green: [[50.0647, 19.9450], [50.0680, 19.9550], [50.0750, 19.9600]],
   fastest: [[50.0647, 19.9450], [50.0614, 19.9365], [50.0580, 19.9340]]
 };
 
-// Punkty zapalne (Incidents) dla widoku City Analytics
 const incidents = [
   { pos: [50.0620, 19.9400], severity: 'high', label: 'Collision Zone' },
   { pos: [50.0710, 19.9500], severity: 'medium', label: 'High Congestion' }
@@ -22,6 +22,7 @@ const incidents = [
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard'); 
   const [selectedRoute, setSelectedRoute] = useState('green');
+  const [ridingStyle, setRidingStyle] = useState('eco');
 
   return (
     <div className="bg-[#131315] text-[#e5e1e4] font-sans h-screen flex overflow-hidden">
@@ -44,144 +45,166 @@ function App() {
           <NavButton active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<LayoutDashboard size={18}/>} label="Dashboard" />
           <NavButton active={activeTab === 'planner'} onClick={() => setActiveTab('planner')} icon={<MapIcon size={18}/>} label="Route Planner" />
           <NavButton active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} icon={<BarChart3 size={18}/>} label="City Analytics" />
-          <NavButton active={activeTab === 'simulation'} onClick={() => setActiveTab('simulation')} icon={<Activity size={18}/>} label="AI Simulation" />
+          <NavButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<Settings size={18}/>} label="Settings" />
         </nav>
 
-        <button className="w-full py-4 bg-gradient-to-r from-[#4FE172] to-[#20BF55] text-[#003913] font-bold rounded-xl flex items-center justify-center gap-2 shadow-lg hover:brightness-110 transition-all active:scale-95">
-          <PlusCircle size={18} /> Start Ride
-        </button>
+        {/* User Mini Profile in Sidebar */}
+        <div className="mt-auto p-4 border-t border-white/5 flex items-center gap-3">
+          <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Alex" className="w-10 h-10 rounded-full border border-[#4FE172]" alt="avatar" />
+          <div>
+            <p className="text-sm font-bold">Alex Chen</p>
+            <p className="text-[10px] text-zinc-500 uppercase tracking-tighter">Pro Navigator</p>
+          </div>
+        </div>
       </aside>
 
       {/* --- MAIN CONTENT --- */}
-      <main className="flex-1 flex flex-col relative">
+      <main className="flex-1 flex flex-col relative overflow-y-auto">
         
         {/* HEADER */}
-        <header className="h-20 bg-[#09090B]/70 backdrop-blur-xl flex items-center justify-between px-8 border-b border-white/5 z-40">
-          <div className="flex items-center gap-4">
-            <h1 className="text-xl font-black text-[#20BF55] uppercase font-headline tracking-tight">
-              {activeTab.replace('_', ' ')}
-            </h1>
-            <div className="h-4 w-px bg-white/10" />
-            <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest">
-              {activeTab === 'analytics' ? 'Network Operational View' : 'Live Data Stream'}
-            </span>
-          </div>
-          
+        <header className="sticky top-0 h-20 bg-[#09090B]/70 backdrop-blur-xl flex items-center justify-between px-8 border-b border-white/5 z-40">
+          <h1 className="text-xl font-black text-[#20BF55] uppercase font-headline">
+            {activeTab.replace('_', ' ')}
+          </h1>
           <div className="flex items-center gap-6">
-            <div className="relative group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-[#4FE172] transition-colors" size={16} />
-              <input className="bg-zinc-900/50 border border-white/5 rounded-full py-2 pl-10 pr-4 text-sm w-64 focus:ring-1 focus:ring-[#4FE172] outline-none" placeholder="Search infrastructure..." />
-            </div>
             <div className="flex gap-4 text-zinc-400">
-               <Bell size={20} className="hover:text-[#4FE172] cursor-pointer transition-colors" />
-               <div className="w-10 h-10 rounded-full border border-[#4FE172]/30 p-0.5 shadow-[0_0_15px_rgba(79,225,114,0.1)]">
-                  <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="avatar" className="rounded-full bg-zinc-800" />
-               </div>
+               <Bell size={20} className="hover:text-[#4FE172] cursor-pointer" />
+               <Radio size={20} className="hover:text-[#4FE172] cursor-pointer" />
+               <ChevronDown size={20} className="hover:text-[#4FE172] cursor-pointer" />
             </div>
           </div>
         </header>
 
-        {/* WORKSPACE */}
-        <div className="flex-1 relative overflow-hidden bg-[#131315]">
+        {/* DYNAMIC CONTENT LAYERS */}
+        <div className="flex-1 relative">
           
-          {/* MAPA (Tło dla wszystkich widoków) */}
-          <MapContainer center={[50.0614, 19.9365]} zoom={14} className="absolute inset-0 z-0 grayscale contrast-[1.2] brightness-[0.4]">
-            <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
-            
-            {/* Rysuj trasy tylko w widoku Planner */}
-            {activeTab === 'planner' && (
-              <>
-                <Polyline positions={routes.green} color={selectedRoute === 'green' ? "#4FE172" : "#3f3f46"} weight={8} />
-                <Polyline positions={routes.fastest} color={selectedRoute === 'fastest' ? "#ef4444" : "#3f3f46"} weight={8} />
-              </>
-            )}
+          {/* MAP LAYER (Only for Dashboard, Planner, Analytics) */}
+          {activeTab !== 'settings' && (
+            <div className="absolute inset-0 z-0">
+              <MapContainer center={[50.0614, 19.9365]} zoom={14} className="h-full w-full grayscale contrast-[1.2] brightness-[0.4]">
+                <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+                {activeTab === 'planner' && (
+                   <Polyline positions={routes[selectedRoute]} color={selectedRoute === 'green' ? "#4FE172" : "#ef4444"} weight={8} />
+                )}
+                {activeTab === 'analytics' && incidents.map((inc, i) => (
+                  <CircleMarker key={i} center={inc.pos} radius={20} pathOptions={{ color: '#ef4444', fillOpacity: 0.3, stroke: false }} />
+                ))}
+              </MapContainer>
+            </div>
+          )}
 
-            {/* Rysuj heatmapę/incydenty tylko w City Analytics */}
-            {activeTab === 'analytics' && incidents.map((inc, i) => (
-              <CircleMarker key={i} center={inc.pos} radius={20} pathOptions={{ color: inc.severity === 'high' ? '#ef4444' : '#f59e0b', fillOpacity: 0.3, stroke: false }}>
-                <Popup>{inc.label}</Popup>
-              </CircleMarker>
-            ))}
-          </MapContainer>
-
-          {/* --- LAYER: CITY ANALYTICS (B2G) --- */}
-          {activeTab === 'analytics' && (
-            <div className="relative z-10 p-8 grid grid-cols-12 gap-6 h-full pointer-events-none">
-              {/* Lewe Overlay: Legendy i Filtry */}
-              <div className="col-span-3 space-y-4 pointer-events-auto">
-                <div className="bg-[#09090B]/90 backdrop-blur-md p-4 rounded-xl border-l-4 border-[#4FE172] shadow-2xl">
-                   <p className="text-[10px] text-zinc-500 font-bold uppercase mb-1">Active Network Nodes</p>
-                   <p className="text-2xl font-black text-white">2,482 <span className="text-xs text-[#4FE172] font-normal ml-2">↑ 12%</span></p>
-                </div>
-                
-                <div className="bg-zinc-900/90 backdrop-blur-md p-6 rounded-2xl border border-white/5">
-                  <h4 className="text-xs font-black uppercase mb-4 tracking-tighter text-zinc-400">Kinetic Legend</h4>
-                  <div className="space-y-3">
-                    <LegendItem color="bg-[#4FE172]" label="Apex Velo Corridor" glow />
-                    <LegendItem color="bg-zinc-600" label="Standard Bike Lane" />
-                    <LegendItem color="bg-red-500" label="Incident Hotzone" pulse />
+          {/* --- VIEW: SETTINGS & PROFILE --- */}
+          {activeTab === 'settings' && (
+            <div className="relative z-10 p-10 max-w-5xl mx-auto space-y-12">
+              
+              {/* Hero Profile Card */}
+              <div className="grid grid-cols-12 gap-6 bg-zinc-900/50 p-8 rounded-3xl border border-white/5 relative overflow-hidden">
+                <div className="col-span-7">
+                  <span className="text-[10px] font-black text-[#4FE172] uppercase tracking-[0.2em] mb-2 block">Active Profile</span>
+                  <h2 className="text-5xl font-black font-headline tracking-tighter mb-6 uppercase">Alex Chen</h2>
+                  <div className="flex gap-4">
+                    <StatBadge label="Level" value="Elite Rider" />
+                    <StatBadge label="Joined" value="Mar 2024" />
                   </div>
                 </div>
+                <div className="col-span-5 text-right flex flex-col justify-end">
+                   <p className="text-[10px] text-zinc-500 uppercase font-bold mb-1">Smog Avoided</p>
+                   <div className="text-6xl font-black text-[#4FE172] font-headline tracking-tighter">1,248<span className="text-xl ml-2">m³</span></div>
+                </div>
+                <Leaf className="absolute -right-8 -bottom-8 text-[#4FE172]/5 w-64 h-64" />
               </div>
 
-              {/* Prawe Overlay: Wykresy i Propozycje */}
-              <div className="col-span-4 col-start-9 space-y-6 pointer-events-auto overflow-y-auto pr-2">
-                <div className="bg-zinc-900/90 backdrop-blur-md p-6 rounded-3xl border border-white/5 shadow-2xl">
-                  <div className="flex justify-between items-center mb-6">
-                    <h4 className="font-bold">Flow Capacity</h4>
-                    <BarChart3 className="text-[#4FE172]" size={18} />
-                  </div>
-                  <div className="h-24 flex items-end gap-1.5 px-2">
-                    {[40, 65, 85, 70, 45, 30].map((h, i) => (
-                      <div key={i} style={{ height: `${h}%` }} className={`flex-1 rounded-t-sm transition-all ${h > 70 ? 'bg-[#4FE172]' : 'bg-zinc-800 hover:bg-zinc-700'}`}></div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bg-[#4FE172]/5 backdrop-blur-md p-6 rounded-3xl border border-[#4FE172]/20">
-                  <h4 className="font-bold mb-4 flex items-center gap-2"><Layers size={18}/> Pending Proposals</h4>
+              {/* Preferences Grid */}
+              <div className="grid grid-cols-2 gap-10">
+                <section className="space-y-6">
+                  <h3 className="font-headline font-bold text-lg flex items-center gap-3">
+                    <div className="w-8 h-0.5 bg-[#4FE172]"></div> RIDING STYLE
+                  </h3>
                   <div className="space-y-3">
-                    <ProposalCard title="West-End Extension" tag="Priority Alpha" desc="Connecting central hub to residential zones." />
-                    <ProposalCard title="River Crossing 4" tag="Review Required" desc="Structural analysis for Node 102." />
+                    <StyleOption 
+                      active={ridingStyle === 'eco'} 
+                      onClick={() => setRidingStyle('eco')}
+                      icon={<Leaf size={20}/>} 
+                      title="Eco-friendly" 
+                      desc="Prioritize parks and low-emission zones" 
+                    />
+                    <StyleOption 
+                      active={ridingStyle === 'speed'} 
+                      onClick={() => setRidingStyle('speed')}
+                      icon={<Zap size={20}/>} 
+                      title="Speed-priority" 
+                      desc="Direct routes using main arteries" 
+                    />
                   </div>
-                  <button className="w-full mt-6 py-3 bg-zinc-800 text-sm font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-zinc-700 transition-colors">
-                    <FileText size={16} /> Generate Full Report
-                  </button>
-                </div>
+                </section>
+
+                <section className="space-y-6">
+                  <h3 className="font-headline font-bold text-lg flex items-center gap-3">
+                    <div className="w-8 h-0.5 bg-orange-400"></div> HEALTH DATA
+                  </h3>
+                  <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5 space-y-6">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm flex items-center gap-2"><Heart size={16} className="text-red-500"/> Pollution Exposure Tracking</span>
+                      <div className="w-10 h-5 bg-[#4FE172] rounded-full relative"><div className="absolute right-1 top-1 w-3 h-3 bg-white rounded-full"></div></div>
+                    </div>
+                    <div className="space-y-2">
+                       <div className="flex justify-between text-[10px] font-bold text-zinc-500 uppercase"><span>Weekly Limit</span><span>72%</span></div>
+                       <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden"><div className="h-full bg-orange-400 w-[72%]"></div></div>
+                    </div>
+                    <button className="w-full py-3 bg-[#4FE172] text-[#003913] font-bold rounded-xl flex items-center justify-center gap-2 hover:brightness-110 transition-all">
+                      <RefreshCw size={16} /> Sync Apple Health
+                    </button>
+                  </div>
+                </section>
+              </div>
+
+              {/* Danger Zone */}
+              <div className="pt-10 border-t border-white/5 flex items-center justify-between opacity-60 hover:opacity-100 transition-opacity">
+                 <div>
+                    <h4 className="text-red-500 font-bold">Danger Zone</h4>
+                    <p className="text-xs text-zinc-500">Permanently delete your ride history</p>
+                 </div>
+                 <button className="px-6 py-2 border border-red-500/30 text-red-500 text-xs font-bold rounded-lg hover:bg-red-500/10 transition-colors">
+                    Delete Account
+                 </button>
               </div>
             </div>
           )}
 
-          {/* ... (Tu trzymaj pozostałe widoki: dashboard, planner, simulation) ... */}
-          {activeTab === 'planner' && <div className="z-10 relative p-8"> {/* Logika Plannera z poprzedniego kroku */} </div>}
-          
+          {/* ... (Tu trzymaj Dashboard i Planner z poprzednich kroków) ... */}
         </div>
       </main>
     </div>
   );
 }
 
-// POMOCNICZE KOMPONENTY (REUSABLE)
+// --- REUSABLE COMPONENTS ---
 const NavButton = ({ active, onClick, icon, label }) => (
-  <button onClick={onClick} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${active ? 'bg-[#4FE172]/10 text-[#4FE172] shadow-[inset_0_0_20px_rgba(79,225,114,0.05)]' : 'text-zinc-500 hover:text-zinc-200'}`}>
+  <button onClick={onClick} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${active ? 'bg-[#4FE172]/10 text-[#4FE172]' : 'text-zinc-500 hover:text-zinc-200'}`}>
     {icon} <span className="text-xs font-black uppercase tracking-widest">{label}</span>
   </button>
 );
 
-const LegendItem = ({ color, label, glow, pulse }) => (
-  <div className="flex items-center gap-3">
-    <div className={`w-3 h-3 rounded-full ${color} ${glow ? 'shadow-[0_0_8px_rgba(79,225,114,0.8)]' : ''} ${pulse ? 'animate-pulse' : ''}`}></div>
-    <span className="text-[10px] font-bold uppercase text-zinc-500">{label}</span>
+const StatBadge = ({ label, value }) => (
+  <div className="px-4 py-2 bg-white/5 rounded-xl border border-white/5">
+    <p className="text-[9px] text-zinc-500 uppercase font-bold tracking-tighter">{label}</p>
+    <p className="text-sm font-bold text-white">{value}</p>
   </div>
 );
 
-const ProposalCard = ({ title, tag, desc }) => (
-  <div className="bg-zinc-900/80 p-4 rounded-xl border border-white/5 hover:border-[#4FE172]/30 transition-all cursor-pointer group">
-    <div className="flex justify-between items-start mb-2">
-      <span className="text-[9px] font-black px-2 py-0.5 bg-[#4FE172]/10 text-[#4FE172] rounded uppercase">{tag}</span>
+const StyleOption = ({ active, icon, title, desc, onClick }) => (
+  <div 
+    onClick={onClick}
+    className={`p-5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${active ? 'bg-[#4FE172]/5 border-[#4FE172] shadow-lg shadow-emerald-500/5' : 'bg-zinc-900/30 border-white/5 hover:bg-zinc-800'}`}
+  >
+    <div className="flex items-center gap-4">
+      <div className={`p-3 rounded-full ${active ? 'bg-[#4FE172] text-[#003913]' : 'bg-zinc-800 text-zinc-500'}`}>{icon}</div>
+      <div>
+        <h4 className={`font-bold text-sm ${active ? 'text-white' : 'text-zinc-400'}`}>{title}</h4>
+        <p className="text-[11px] text-zinc-500">{desc}</p>
+      </div>
     </div>
-    <h5 className="text-sm font-bold mb-1 group-hover:text-[#4FE172] transition-colors">{title}</h5>
-    <p className="text-[11px] text-zinc-500 leading-tight">{desc}</p>
+    {active && <CheckCircle2 className="text-[#4FE172]" size={20} />}
   </div>
 );
 
