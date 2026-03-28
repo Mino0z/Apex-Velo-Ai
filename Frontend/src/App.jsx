@@ -1,26 +1,194 @@
 import React, { useState } from 'react';
-import { MapContainer, TileLayer, Circle, Marker, Popup } from 'react-leaflet';
+import { 
+  MapContainer, TileLayer, Polyline, Circle, Marker, Popup 
+} from 'react-leaflet';
 import { 
   Bike, LayoutDashboard, Map as MapIcon, Search, Bell, Settings, 
-  BarChart3, FileText, Target, TrendingUp, Landmark, 
-  ArrowUpRight, Download, Filter, Leaf, HeartPulse, ChevronRight, PlusCircle
+  BarChart3, FileText, Target, Landmark, Activity, ShieldAlert,
+  Zap, TrendingUp, Download, Filter, ChevronRight, PlusCircle,
+  Leaf, Info, AlertTriangle, MousePointer2, Gauge
 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
-// --- MOCK DANYCH INWESTYCYJNYCH ---
-const investmentProjects = [
-  { id: 1, name: "Vistula North Express Link", cost: "12.8M PLN", sroi: "4.8x", health: "12.4M", traffic: "28%", score: 92 },
-  { id: 2, name: "Old Town Pedestrianization", cost: "4.2M PLN", sroi: "3.2x", health: "8.1M", traffic: "14%", score: 78 },
-  { id: 3, name: "District Connectivity Bridge", cost: "31.5M PLN", sroi: "2.1x", health: "5.2M", traffic: "34%", score: 62 }
-];
+// --- ATOMOWE KOMPONENTY UI ---
+const NavButton = ({ active, onClick, icon, label }) => (
+  <button onClick={onClick} className={`flex items-center gap-3 px-6 py-3.5 rounded-2xl transition-all w-full ${active ? 'bg-[#4FE172]/10 text-[#4FE172] border-r-4 border-[#4FE172]' : 'text-zinc-500 hover:text-zinc-200 hover:bg-white/5'}`}>
+    {icon} <span className="text-[10px] font-black uppercase tracking-widest leading-none">{label}</span>
+  </button>
+);
 
-function App() {
+const StatCard = ({ label, value, sub, icon: Icon, color }) => (
+  <div className="bg-zinc-900/50 p-6 rounded-3xl border border-white/5 hover:border-white/10 transition-all">
+    <div className="flex justify-between items-start mb-4">
+      <p className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">{label}</p>
+      <Icon size={18} className={color} />
+    </div>
+    <div className="text-3xl font-black font-headline mb-1">{value}</div>
+    <p className="text-[10px] font-bold text-zinc-600 uppercase">{sub}</p>
+  </div>
+);
+
+// --- GŁÓWNA APLIKACJA ---
+export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [showHeatmap, setShowHeatmap] = useState(true);
+
+  // Funkcja sterująca treścią (to tutaj naprawiliśmy "pusty ekran")
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'dashboard':
+        return (
+          <div className="space-y-8 animate-in fade-in duration-700">
+            <div className="grid grid-cols-4 gap-6">
+              <StatCard label="Active Cyclists" value="12,482" sub="+14% from yesterday" icon={Activity} color="text-[#4FE172]" />
+              <StatCard label="CO2 Saved" value="84.2 t" sub="Monthly target: 100t" icon={Leaf} color="text-emerald-400" />
+              <StatCard label="Avg. Speed" value="18.4 km/h" sub="Urban flow optimal" icon={Zap} color="text-yellow-500" />
+              <StatCard label="Safety Incidents" value="0" sub="Last 24 hours" icon={ShieldAlert} color="text-red-500" />
+            </div>
+            <div className="bg-zinc-900/30 h-96 rounded-[2rem] border border-white/5 flex items-center justify-center border-dashed">
+               <p className="text-zinc-600 font-black uppercase tracking-[0.3em]">Network Activity Visualization</p>
+            </div>
+          </div>
+        );
+
+      case 'investments':
+        return (
+          <div className="animate-in slide-in-from-bottom-4 duration-500">
+            <div className="flex justify-between items-end mb-10">
+              <div>
+                <h2 className="text-4xl font-black font-headline tracking-tighter mb-2">INVESTMENT PRIORITIZATION</h2>
+                <p className="text-zinc-500 max-w-2xl text-sm">Strategic ranking of infrastructure projects based on Social ROI.</p>
+              </div>
+              <div className="flex gap-3">
+                 <button className="flex items-center gap-2 px-4 py-2 bg-zinc-900 rounded-lg text-xs font-bold border border-white/5"><Filter size={14}/> Filter</button>
+                 <button className="flex items-center gap-2 px-4 py-2 bg-[#4FE172] text-[#003913] rounded-lg text-xs font-black"><Download size={14}/> Export</button>
+              </div>
+            </div>
+            <div className="grid grid-cols-12 gap-6">
+               <div className="col-span-4 bg-zinc-900/50 p-8 rounded-[2rem] border border-white/5">
+                  <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Highest SROI</span>
+                  <h3 className="text-2xl font-bold mt-4 mb-2">Vistula Corridor</h3>
+                  <div className="text-5xl font-black text-[#4FE172] font-headline">4.8x</div>
+               </div>
+               <div className="col-span-8 bg-zinc-900/50 p-8 rounded-[2rem] border border-white/5 flex items-center justify-center italic text-zinc-600">
+                  Priority Matrix Visualization Placeholder
+               </div>
+            </div>
+          </div>
+        );
+
+      case 'gap_analysis':
+        return (
+          <div className="h-[70vh] flex gap-6 animate-in fade-in">
+            <div className="w-96 bg-zinc-900/50 p-8 rounded-[2rem] border border-white/5 space-y-8">
+               <h2 className="text-2xl font-black font-headline tracking-tighter">INFRASTRUCTURE GAPS</h2>
+               <div className="p-4 bg-red-500/10 border-l-4 border-red-500 rounded-xl">
+                  <p className="text-[10px] font-black text-red-500 uppercase">Safety Gap</p>
+                  <p className="text-2xl font-black">-24.8%</p>
+               </div>
+               <div className="space-y-4">
+                  <div className="p-4 bg-zinc-800/30 rounded-xl border border-white/5">
+                    <p className="text-xs font-bold">Mitte-Wedding Corridor</p>
+                    <p className="text-[10px] text-red-400 font-black uppercase mt-1 text-red-500">Critical Priority</p>
+                  </div>
+               </div>
+            </div>
+            <div className="flex-1 bg-zinc-950 rounded-[2rem] border border-white/5 overflow-hidden relative">
+               <div className="absolute inset-0 opacity-40">
+                  <MapContainer center={[50.061, 19.936]} zoom={13} zoomControl={false} className="h-full w-full grayscale contrast-125">
+                    <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+                    <Circle center={[50.061, 19.936]} radius={1000} pathOptions={{color: '#ef4444', fillOpacity: 0.2}} />
+                  </MapContainer>
+               </div>
+               <div className="absolute top-6 left-6 bg-zinc-900/90 backdrop-blur px-4 py-2 rounded-full border border-white/10 flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                  <span className="text-[10px] font-black uppercase tracking-widest">High Deficiency Zone</span>
+               </div>
+            </div>
+          </div>
+        );
+
+      case 'planner':
+        return (
+          <div className="flex gap-6 h-[75vh] animate-in slide-in-from-right-4 duration-500">
+             <div className="w-80 bg-zinc-900/50 p-6 rounded-[2rem] border border-white/5">
+                <h3 className="text-sm font-black uppercase tracking-widest text-zinc-400 mb-6">Route Settings</h3>
+                <div className="space-y-6">
+                   <div>
+                      <label className="text-[10px] font-black text-zinc-500 uppercase">Safety Preference</label>
+                      <input type="range" className="w-full accent-[#4FE172] mt-2" />
+                   </div>
+                   <button className="w-full py-4 bg-[#4FE172] text-[#003913] font-black rounded-xl uppercase text-[10px] mt-8">Generate Optimal Route</button>
+                </div>
+             </div>
+             <div className="flex-1 bg-zinc-950 rounded-[2rem] border border-white/5 overflow-hidden">
+                <MapContainer center={[50.061, 19.936]} zoom={14} zoomControl={false} className="h-full w-full grayscale brightness-75">
+                   <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+                </MapContainer>
+             </div>
+          </div>
+        );
+
+      case 'analytics':
+        return (
+          <div className="grid grid-cols-3 gap-6 animate-in zoom-in-95 duration-500">
+             <div className="col-span-2 bg-zinc-900/30 h-96 rounded-[2rem] border border-white/5 flex items-center justify-center">
+                <BarChart3 size={48} className="text-zinc-800" />
+             </div>
+             <div className="bg-zinc-900/30 h-96 rounded-[2rem] border border-white/5 p-8">
+                <h3 className="font-black uppercase text-[10px] tracking-widest text-zinc-500 mb-4">Top Routes</h3>
+                <div className="space-y-4">
+                   {[1,2,3].map(i => <div key={i} className="h-12 bg-white/5 rounded-xl border border-white/5"></div>)}
+                </div>
+             </div>
+          </div>
+        );
+
+      case 'reports':
+        return (
+          <div className="max-w-4xl space-y-4 animate-in fade-in">
+             <h2 className="text-2xl font-black font-headline tracking-tighter mb-8">Generated Reports</h2>
+             {[1,2,3].map(i => (
+               <div key={i} className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5 flex items-center justify-between hover:bg-zinc-800/50 transition-all cursor-pointer">
+                  <div className="flex items-center gap-4">
+                     <div className="p-3 bg-zinc-950 rounded-xl text-[#4FE172]"><FileText size={20}/></div>
+                     <div>
+                        <p className="font-bold text-sm">Monthly Infrastructure Audit - Q{i} 2026</p>
+                        <p className="text-[10px] text-zinc-500 font-bold uppercase">PDF • 4.2 MB • Generated 2 days ago</p>
+                     </div>
+                  </div>
+                  <Download size={18} className="text-zinc-600" />
+               </div>
+             ))}
+          </div>
+        );
+
+      case 'settings':
+        return (
+          <div className="max-w-2xl bg-zinc-900/30 p-10 rounded-[2rem] border border-white/5 animate-in slide-in-from-top-4">
+             <h2 className="text-xl font-black font-headline tracking-tighter mb-8">SYSTEM SETTINGS</h2>
+             <div className="space-y-6">
+                <div className="flex justify-between items-center p-4 bg-zinc-950 rounded-2xl">
+                   <span className="text-xs font-bold uppercase tracking-widest">Dark Mode AI Interface</span>
+                   <div className="w-10 h-5 bg-[#4FE172] rounded-full relative"><div className="absolute right-1 top-1 w-3 h-3 bg-[#003913] rounded-full"></div></div>
+                </div>
+                <div className="flex justify-between items-center p-4 bg-zinc-950 rounded-2xl opacity-50">
+                   <span className="text-xs font-bold uppercase tracking-widest">Real-time Traffic Sync</span>
+                   <div className="w-10 h-5 bg-zinc-800 rounded-full relative"><div className="absolute left-1 top-1 w-3 h-3 bg-zinc-600 rounded-full"></div></div>
+                </div>
+             </div>
+          </div>
+        );
+
+      default:
+        return <div className="text-zinc-800 font-black text-6xl italic opacity-10">VIEW_NOT_FOUND</div>;
+    }
+  };
 
   return (
     <div className="bg-[#131315] text-[#e5e1e4] font-sans h-screen flex overflow-hidden">
       
-      {/* --- SIDEBAR (Stały element) --- */}
+      {/* --- SIDEBAR --- */}
       <aside className="w-64 border-r border-white/5 bg-[#09090B] flex flex-col py-6 px-4 z-50">
         <div className="mb-10 px-4">
            <div className="flex items-center gap-2 mb-1">
@@ -40,156 +208,41 @@ function App() {
           <NavButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<Settings size={18}/>} label="Settings" />
         </nav>
 
-        <button className="mt-auto w-full py-3 bg-[#4FE172] text-[#003913] font-black text-[10px] uppercase rounded-xl flex items-center justify-center gap-2">
+        <button className="mt-auto w-full py-3 bg-[#4FE172] text-[#003913] font-black text-[10px] uppercase rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-[#4FE172]/10 active:scale-95 transition-all">
           <PlusCircle size={14}/> New Simulation
         </button>
       </aside>
 
       {/* --- MAIN CONTENT --- */}
-      <main className="flex-1 overflow-y-auto bg-[#131315] relative brush-texture">
+      <main className="flex-1 flex flex-col overflow-hidden relative">
         
-        {/* TOP HEADER */}
-        <header className="sticky top-0 h-16 bg-[#131315]/80 backdrop-blur-xl flex items-center justify-between px-8 border-b border-white/5 z-40">
+        {/* TOP BAR */}
+        <header className="h-16 bg-[#131315]/80 backdrop-blur-xl flex items-center justify-between px-8 border-b border-white/5 z-40">
            <div className="flex items-center gap-4">
-              <h1 className="text-sm font-black uppercase tracking-[0.2em] text-zinc-400">{activeTab.replace('_', ' ')}</h1>
+              <h1 className="text-sm font-black uppercase tracking-[0.2em] text-[#4FE172]">{activeTab.replace('_', ' ')}</h1>
            </div>
            <div className="flex items-center gap-6">
               <div className="relative group hidden md:block">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-[#4FE172]" size={14}/>
-                <input className="bg-zinc-900 border-none rounded-full pl-10 pr-4 py-1.5 text-xs w-64 focus:ring-1 focus:ring-[#4FE172]/50 transition-all" placeholder="Search projects or districts..." />
+                <input className="bg-zinc-900 border-none rounded-full pl-10 pr-4 py-1.5 text-xs w-64 focus:ring-1 focus:ring-[#4FE172]/50 transition-all text-white" placeholder="Search data points..." />
               </div>
               <div className="flex items-center gap-3">
-                 <Bell size={18} className="text-zinc-500 cursor-pointer hover:text-white" />
-                 <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Strategy" className="w-8 h-8 rounded-full border border-white/10" alt="profile" />
+                 <Bell size={18} className="text-zinc-500 cursor-pointer hover:text-white transition-colors" />
+                 <div className="h-8 w-8 rounded-xl bg-zinc-800 border border-white/10 flex items-center justify-center overflow-hidden">
+                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Strategy" alt="avatar" />
+                 </div>
               </div>
            </div>
         </header>
 
-        {/* WORKSPACE */}
-        <div className="p-8 max-w-7xl mx-auto">
-          
-          {/* --- VIEW: INVESTMENT PRIORITIZATION --- */}
-          {activeTab === 'investments' && (
-            <div className="animate-in fade-in duration-500">
-              {/* Header */}
-              <div className="flex justify-between items-end mb-10">
-                <div>
-                  <h2 className="text-4xl font-black font-headline tracking-tighter mb-2">INVESTMENT PRIORITIZATION</h2>
-                  <p className="text-zinc-500 max-w-2xl text-sm">Strategic ranking based on Social Return on Investment (SROI) and 2024-2026 cycle targets.</p>
-                </div>
-                <div className="flex gap-3">
-                   <button className="flex items-center gap-2 px-4 py-2 bg-zinc-900 rounded-lg text-xs font-bold border border-white/5 hover:bg-zinc-800 transition-all"><Filter size={14}/> Filter</button>
-                   <button className="flex items-center gap-2 px-4 py-2 bg-[#4FE172] text-[#003913] rounded-lg text-xs font-black"><Download size={14}/> Export Report</button>
-                </div>
-              </div>
-
-              {/* Top Bento Cards */}
-              <div className="grid grid-cols-12 gap-6 mb-8">
-                {/* SROI Hero Card */}
-                <div className="col-span-4 bg-zinc-900/50 rounded-3xl p-8 border border-white/5 relative overflow-hidden group">
-                   <div className="absolute -top-4 -right-4 text-[#4FE172]/10 group-hover:text-[#4FE172]/20 transition-all">
-                      <TrendingUp size={160} />
-                   </div>
-                   <span className="text-[10px] font-black uppercase text-zinc-500 tracking-widest block mb-6">Highest Projected SROI</span>
-                   <h3 className="text-xl font-bold mb-1">Vistula Corridor Expansion</h3>
-                   <div className="text-5xl font-black text-[#4FE172] mb-6 font-headline">4.8x <span className="text-xs font-normal text-zinc-500">Return</span></div>
-                   <div className="flex gap-6">
-                      <div><p className="text-[10px] text-zinc-500 font-bold uppercase">Smog Red.</p><p className="font-bold text-[#4FE172]">-18.2%</p></div>
-                      <div className="w-px bg-white/5 h-8"></div>
-                      <div><p className="text-[10px] text-zinc-500 font-bold uppercase">Health Savings</p><p className="font-bold">12.4M/y</p></div>
-                   </div>
-                </div>
-
-                {/* Impact vs Cost Matrix */}
-                <div className="col-span-8 bg-zinc-900/50 rounded-3xl p-8 border border-white/5">
-                   <div className="flex justify-between items-center mb-6">
-                      <h3 className="text-sm font-black uppercase tracking-widest text-zinc-400">Impact vs. Cost Matrix</h3>
-                      <div className="flex gap-4 text-[10px] font-bold">
-                         <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[#4FE172]"></div> High Priority</span>
-                         <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-orange-500"></div> Moderate</span>
-                      </div>
-                   </div>
-                   <div className="h-48 w-full border-l border-b border-white/10 relative flex items-end justify-center">
-                      <div className="absolute bottom-[-20px] text-[9px] font-black text-zinc-600 uppercase tracking-widest">Implementation Cost</div>
-                      <div className="absolute left-[-40px] top-1/2 -rotate-90 text-[9px] font-black text-zinc-600 uppercase tracking-widest">Social Impact</div>
-                      
-                      {/* Plot Points */}
-                      <div className="absolute top-[20%] left-[80%] w-4 h-4 bg-[#4FE172] rounded-full shadow-lg shadow-[#4FE172]/20 animate-pulse cursor-pointer"></div>
-                      <div className="absolute top-[50%] left-[40%] w-3 h-3 bg-[#4FE172]/60 rounded-full border border-[#4FE172] cursor-pointer"></div>
-                      <div className="absolute top-[70%] left-[20%] w-2 h-2 bg-orange-500 rounded-full cursor-pointer"></div>
-                   </div>
-                </div>
-              </div>
-
-              {/* Ranking List & Metrics */}
-              <div className="grid grid-cols-12 gap-8">
-                <div className="col-span-8 space-y-4">
-                  <h3 className="text-xl font-bold font-headline mb-4">Infrastructure Rankings</h3>
-                  {investmentProjects.map(proj => (
-                    <div key={proj.id} className="bg-zinc-900/30 p-5 rounded-2xl border border-white/5 hover:bg-zinc-800/40 transition-all cursor-pointer group flex items-center gap-6">
-                      <div className="w-10 h-10 rounded-xl bg-zinc-950 flex items-center justify-center font-black text-[#4FE172]">{proj.id}</div>
-                      <div className="flex-grow">
-                        <h4 className="font-bold text-sm mb-1 group-hover:text-[#4FE172] transition-colors">{proj.name}</h4>
-                        <div className="flex gap-4 text-[10px] font-bold text-zinc-500 uppercase">
-                          <span>{proj.cost}</span>
-                          <span>{proj.health} Health Sav.</span>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                         <p className="text-[10px] text-zinc-500 font-bold uppercase mb-1">Impact Score</p>
-                         <div className="w-24 h-1.5 bg-zinc-950 rounded-full overflow-hidden">
-                           <div className="bg-[#4FE172] h-full" style={{width: `${proj.score}%`}}></div>
-                         </div>
-                      </div>
-                      <ChevronRight size={18} className="text-zinc-700 group-hover:text-white" />
-                    </div>
-                  ))}
-                </div>
-
-                {/* Side Stats */}
-                <div className="col-span-4 space-y-6">
-                   <div className="bg-zinc-900/50 p-6 rounded-3xl border border-white/5">
-                      <h4 className="text-xs font-black uppercase text-zinc-400 mb-6 tracking-widest">Environmental Yield</h4>
-                      <div className="space-y-6">
-                         <YieldMetric label="CO2 Offset Combined" value="450 Tons/y" progress={70} />
-                         <YieldMetric label="PM2.5 Reduction" value="-14.2%" progress={45} />
-                      </div>
-                   </div>
-                   <div className="bg-gradient-to-br from-[#4FE172]/10 to-transparent p-6 rounded-3xl border border-[#4FE172]/20">
-                      <h4 className="font-bold text-sm mb-2">Simulate Budget Shift</h4>
-                      <p className="text-[10px] text-zinc-500 leading-relaxed mb-4">Adjust the 2025 budget by ±15% to see ROI impact.</p>
-                      <button className="w-full py-2 bg-white/5 hover:bg-white/10 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all">Run Optimizer</button>
-                   </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ... Inne widoki (Dashboard, Analytics itp.) ... */}
-          {activeTab === 'dashboard' && <div className="text-center py-20 opacity-20 text-4xl font-black italic">DASHBOARD VIEW ACTIVE</div>}
+        {/* WORKSPACE AREA */}
+        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+          {renderContent()}
         </div>
+
+        {/* BACKGROUND DECORATION */}
+        <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-[#4FE172]/5 blur-[120px] rounded-full pointer-events-none z-0"></div>
       </main>
     </div>
   );
 }
-
-// --- POMOCNICZE KOMPONENTY ---
-const NavButton = ({ active, onClick, icon, label }) => (
-  <button onClick={onClick} className={`flex items-center gap-3 px-6 py-3.5 rounded-2xl transition-all ${active ? 'bg-[#4FE172]/10 text-[#4FE172] border-r-4 border-[#4FE172]' : 'text-zinc-500 hover:text-zinc-200'}`}>
-    {icon} <span className="text-[10px] font-black uppercase tracking-widest leading-none">{label}</span>
-  </button>
-);
-
-const YieldMetric = ({ label, value, progress }) => (
-  <div>
-    <div className="flex justify-between text-[10px] font-bold mb-2">
-      <span className="text-zinc-500 uppercase">{label}</span>
-      <span className="text-[#4FE172]">{value}</span>
-    </div>
-    <div className="w-full h-1 bg-zinc-950 rounded-full overflow-hidden">
-      <div className="bg-[#4FE172] h-full" style={{width: `${progress}%`}}></div>
-    </div>
-  </div>
-);
-
-export default App;
