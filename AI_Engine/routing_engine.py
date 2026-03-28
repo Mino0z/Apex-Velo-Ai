@@ -220,10 +220,11 @@ class RoutingEngine:
             geom = edge.get("geometry")
 
             if geom is not None:
-                coords.extend(list(geom.coords))
+                # geom.coords to (lon, lat) -> zmieniamy na [lat, lon]
+                coords.extend([[p[1], p[0]] for p in geom.coords])
             else:
-                coords.append((self.G.nodes[u]["x"], self.G.nodes[u]["y"]))
-
+                # węzły w nx mają 'y' jako lat i 'x' jako lon
+                coords.append([self.G.nodes[u]["y"], self.G.nodes[u]["x"]])
         return coords
 
     # =========================
@@ -267,23 +268,22 @@ class RoutingEngine:
             if edge_data:
                 data = list(edge_data.values())[0]
                 f = data.get("features", {})
-
                 length = data.get("length", 0)
                 total_len += length
-
                 if f.get("green", 0) > 0:
                     green_len += length
-
                 noise_values.append(f.get("noise", 0))
 
         avg_noise = sum(noise_values) / len(noise_values) if noise_values else 0
         green_pct = (green_len / total_len * 100) if total_len > 0 else 0
 
+        # ZWRACAMY CZYSTE LICZBY I ANGIELSKIE KLUCZE
         return {
-            "Dystans": f"{round(total_len, 1)} m",
-            "Udział zieleni": f"{round(green_pct, 1)}%",
-            "Średni hałas": f"{round(avg_noise * 100, 1)}%",
-            "Komunikat": "Trasa zoptymalizowana pod komfort, zieleń i unikanie hałasu."
+            "distance": float(total_len),
+            "avg_green": float(green_pct),
+            "avg_noise": float(avg_noise * 100),
+            "safety_focus": "High",
+            "message": "Trasa zoptymalizowana pod komfort i zieleń."
         }
 
     def get_heatmap_data(self, layer_type="noise", grid_size=50):

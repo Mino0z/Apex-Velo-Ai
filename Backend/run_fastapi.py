@@ -86,30 +86,39 @@ def health_check():
 @app.post("/suggest-corridor")
 def suggest_corridor(req: PlannerRequest):
     if engine is None:
-        raise HTTPException(status_code=503,
-                            detail="Silnik AI nie został jeszcze załadowany.")
+        raise HTTPException(status_code=503, detail="Silnik AI nie gotowy")
 
     try:
+        # LOGOWANIE DANYCH - sprawdź w konsoli Pythona co tu wpada!
+        print(f"Otrzymano żądanie: START({req.start_lat}, {req.start_lon}) END({req.end_lat}, {req.end_lon})")
+
+        # Upewnij się, że kolejność przekazywana do funkcji jest zgodna z tym, 
+        # czego oczekuje Twój RoutingEngine (zazwyczaj lat, lon)
         nodes, stats = engine.suggest_new_corridor(
             req.start_lat, req.start_lon,
             req.end_lat, req.end_lon
         )
 
         coords = engine._route_to_coords(nodes)
-        # Formatowanie pod GeoJSON/Leaflet: [lat, lon]
-        lat_lon_coords = [[p[1], p[0]] for p in coords]
+        
+        # WAŻNE: Leaflet potrzebuje [lat, lon]. 
+        # Jeśli _route_to_coords zwraca listę (lat, lon), użyj p[0], p[1]
+        lat_lon_coords = coords
 
+        #print(f"DEBUG COORDS: {lat_lon_coords[:2]}")
+        print(f"DEBUG BACKEND: Pierwszy punkt trasy: {coords[0]}")
         return {
             "geometry": {
                 "type": "LineString",
-                "coordinates": lat_lon_coords
+                "coordinates": lat_lon_coords  # To musi być lista punktów
             },
             "statistics": stats
         }
     except Exception as e:
-        print(f"Błąd routingu: {e}")
-        raise HTTPException(status_code=500,
-                            detail="Nie udało się wyznaczyć korytarza.")
+        # To wypisze DOKŁADNY błąd w konsoli Pythona
+        import traceback
+        traceback.print_exc() 
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/heatmap/{layer_type}")

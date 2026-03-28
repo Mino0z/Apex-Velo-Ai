@@ -10,6 +10,14 @@ import {
 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import axios from 'axios';
+import L from 'leaflet';
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 // --- ATOMOWE KOMPONENTY UI ---
 const NavButton = ({ active, onClick, icon, label }) => (
@@ -54,15 +62,19 @@ function MapClickHandler({ startPoint, setStartPoint, endPoint, setEndPoint, set
 const RouteBoundsFitter = ({ route }) => {
   const map = useMap();
   useEffect(() => {
-    if (route) {
-      const bounds = route.length === 1 
-        ? [route[0], route[0]] 
-        : [route[0], route[route.length - 1]];
-      map.fitBounds(bounds, { padding: [20, 20] });
+    if (route && Array.isArray(route) && route.length > 0) {
+      try {
+        const bounds = L.polyline(route).getBounds();
+        if (bounds.isValid()) {
+          map.fitBounds(bounds, { padding: [50, 50], animate: true });
+        }
+      } catch (err) {
+        console.error("Błąd dopasowania mapy:", err);
+      }
     }
   }, [route, map]);
   return null;
-}
+};
 
 // --- GŁÓWNA APLIKACJA ---
 export default function App() {
@@ -79,33 +91,44 @@ export default function App() {
 
   // Funkcja sugerująca trasę na podstawie punktów startowego i końcowego
   const handleSuggestCorridor = async () => {
-    if (!startPoint || !endPoint) return;
+	  if (!startPoint || !endPoint) return;
 
-    setLoadingRoute(true);
-    setCorridorStats(null);
-    try {
-      const response = await axios.post('http://127.0.0.1:8000/suggest-corridor', {
-        start_lat: startPoint[0],
-        start_lon: startPoint[1],
-        end_lat: endPoint[0],
-        end_lon: endPoint[1]
-      });
+	  setLoadingRoute(true);
+	  setCorridorStats(null);
+	  try {
+		const response = await axios.post('http://127.0.0.1:8000/suggest-corridor', {
+		  start_lat: startPoint[0],
+		  start_lon: startPoint[1],
+		  end_lat: endPoint[0],
+		  end_lon: endPoint[1]
+		});
 
-      if (response.data?.geometry?.coordinates) {
-         setPlannedRoute(response.data.geometry.coordinates);
-      }
-      
-      if (response.data?.statistics) {
-		 console.log("Dane z Backend:", response.data.statistics); // <--- TO CI POWIE WSZYSTKO
-         setCorridorStats(response.data.statistics);
-      }
-    } catch (error) {
-      console.error('Error calculating route:', error);
-      alert('Nie udało połączyć się z AI silnikiem lub wyznaczyć trasy. Sprawdź czy backend działa na porcie 8000.');
-    } finally {
-      setLoadingRoute(false);
-    }
-  };
+		// ... wewnątrz handleSuggestCorridor
+		if (response.data?.geometry?.coordinates) {
+		  const rawCoords = response.data.geometry.coordinates;
+		  
+		  // LOGUJEMY DANE - sprawdź czy w konsoli przeglądarki (F12) 
+		  // pierwszy element to na pewno liczba ok. 50 (Lat)
+		  console.log("Dane docierające do frontendu:", rawCoords[0]); 
+
+		  // Skoro backend wysyła [Lat, Lon], po prostu przypisujemy:
+		  setPlannedRoute(rawCoords);
+		}
+		
+		if (response.data?.statistics) {
+		  setCorridorStats(response.data.statistics);
+		}
+	  } catch (error) {
+		  console.error('Error calculating route:', error);
+		  if (error.response?.status === 500) {
+			alert('Silnik AI: Nie znaleziono ścieżki między tymi punktami. Spróbuj kliknąć bliżej głównych dróg.');
+		  } else {
+			alert('Błąd połączenia z silnikiem AI.');
+		  }
+		} finally {
+		  setLoadingRoute(false);
+		}
+	};
 
   // Funkcja sterująca treścią (to tutaj naprawiliśmy "pusty ekran")
   const renderContent = () => {
@@ -187,7 +210,12 @@ export default function App() {
 		  return (
 			<div className="flex flex-col md:flex-row h-[calc(100vh-12rem)] md:h-[75vh] animate-in slide-in-from-right-4 duration-500">
                <div className="flex-1 md:w-[75%] bg-zinc-950 rounded-l-[2rem] border border-white/5 border-r-0 overflow-hidden min-h-[300px]">
-				  <MapContainer center={[50.061, 19.936]} zoom={14} zoomControl={false} className="h-full w-full grayscale brightness-75">
+				  <MapContainer 
+					  center={[50.061, 19.936]} 
+					  zoom={14} 
+					  zoomControl={false} 
+					  className="h-full w-full bg-zinc-900" // Usuń grayscale i brightness
+					>
 					 <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
 					 
                      {/* BINDING ZDARZEŃ KLIKNIĘCIA DLA MAPY */}
@@ -201,13 +229,19 @@ export default function App() {
                      {startPoint && <Marker position={startPoint} />}
                      {endPoint && <Marker position={endPoint} />}
 
-					 {/* WYŚWIETLANIE TRASY JEŚLI ISTNIEJE: */}
-					 {plannedRoute && (
-						<>
-						   <Polyline positions={plannedRoute} color="#4FE172" weight={5} opacity={0.8} dashArray="10, 10" />
-                           <RouteBoundsFitter route={plannedRoute} />
-						</>
-					 )}
+					 {/* WYŚWIETLANIE TRASY - dodaj sprawdzenie czy plannedRoute to tablica */}
+						{Array.isArray(plannedRoute) && plannedRoute.length > 0 && (
+						  <>
+							<Polyline 
+							  positions={plannedRoute} 
+							  color="#4FE172" 
+							  weight={5} 
+							  opacity={0.8} 
+							  dashArray="10, 10" 
+							/>
+							<RouteBoundsFitter route={plannedRoute} />
+						  </>
+						)}
 				  </MapContainer>
 			   </div>
 			   <div className="w-full md:w-[25%] md:min-w-[320px] bg-zinc-900/50 p-6 rounded-r-[2rem] border border-white/5 overflow-y-auto custom-scrollbar shrink-0 max-h-[50vh] md:max-h-none">
@@ -235,21 +269,23 @@ export default function App() {
                 <p className="font-bold text-[#4FE172] mb-1">Corridor Statistics</p>
                 <div className="mt-3 text-xs text-zinc-400 space-y-2">
                    <div className="flex justify-between">
-                     <span>Distance:</span>
-                     <span className="font-mono text-zinc-200">{(corridorStats.distance / 1000).toFixed(2)} km</span>
-                   </div>
-                   <div className="flex justify-between">
-                     <span>Noise Index:</span>
-                     <span className="font-mono text-zinc-200">
-					  {corridorStats?.avg_noise ? corridorStats.avg_noise.toFixed(1) : "0.0"}
-					 </span>
-                   </div>
-                   <div className="flex justify-between">
-                     <span>Green Index:</span>
-                     <span className="font-mono text-zinc-200">
-					  {corridorStats?.avg_green ? corridorStats.avg_green.toFixed(1) : "0.0"}
-					 </span>
-                   </div>
+					  <span>Distance:</span>
+					  <span className="font-mono text-zinc-200">
+						{((corridorStats.distance || 0) / 1000).toFixed(2)} km
+					  </span>
+					</div>
+					<div className="flex justify-between">
+					  <span>Noise Index:</span>
+					  <span className="font-mono text-zinc-200">
+						{(corridorStats.avg_noise || 0).toFixed(1)}%
+					  </span>
+					</div>
+					<div className="flex justify-between">
+					  <span>Green Index:</span>
+					  <span className="font-mono text-zinc-200">
+						{(corridorStats.avg_green || 0).toFixed(1)}%
+					  </span>
+					</div>
                    <div className="flex justify-between">
                      <span>Safety Focus:</span>
                      <span className="font-mono text-[#4FE172]">{corridorStats.safety_focus}</span>
