@@ -41,16 +41,18 @@ async def lifespan(app: FastAPI):
     yield
     # Tutaj opcjonalnie sprzątanie przy wyłączaniu serwera
     print("👋 Wyłączanie serwera...")
+
 app = FastAPI(
     title="Apex Velo AI API",
     lifespan=lifespan
 )
 
+# DODAJ TO TUTAJ:
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Pozwala na połączenia z każdego adresu (idealne na hackathon)
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["*"],  # Pozwala na POST, GET, OPTIONS itd.
     allow_headers=["*"],
 )
 
