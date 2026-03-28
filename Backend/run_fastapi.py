@@ -86,7 +86,7 @@ def health_check():
 
 
 @app.post("/suggest-corridor")
-def suggest_corridor(req: PlannerRequest):
+def suggest_corridor(req: RouteRequest):
     if engine is None:
         raise HTTPException(status_code=503,
                             detail="Silnik AI nie został jeszcze załadowany.")
@@ -94,10 +94,15 @@ def suggest_corridor(req: PlannerRequest):
     try:
         nodes, stats = engine.suggest_new_corridor(
             req.start_lat, req.start_lon,
-            req.end_lat, req.end_lon
+            req.end_lat, req.end_lon,
+            mode=req.mode
         )
 
-        coords = engine._route_to_coords(nodes)
+        coords = engine._route_to_coords(
+            nodes,
+            start_point=(req.start_lat, req.start_lon),
+            end_point=(req.end_lat, req.end_lon)
+        )
         # Formatowanie pod GeoJSON/Leaflet: [lat, lon]
         lat_lon_coords = [[p[1], p[0]] for p in coords]
 
