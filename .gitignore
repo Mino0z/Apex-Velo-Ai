@@ -3,7 +3,7 @@
 /AI_Engine/data
 /AI_Engine/cache
 cache
-AI_Engine/__pycache__/
+AI_Engine/__pycache__/*
 __pycache__/
 *.html
 data.zip

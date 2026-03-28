@@ -12,7 +12,7 @@ CACHE_DIR = "cache"
 GRAPH_FILE = os.path.join(CACHE_DIR, "graph.pkl")  # wersjonowanie cache
 
 KRAKOW_CENTER = (50.0647, 19.9450)
-DIST = 1000
+DIST = 2000
 
 # ===== WEIGHTS =====
 WEIGHTS = {
@@ -285,3 +285,61 @@ class RoutingEngine:
             "Średni hałas": f"{round(avg_noise * 100, 1)}%",
             "Komunikat": "Trasa zoptymalizowana pod komfort, zieleń i unikanie hałasu."
         }
+
+    def get_heatmap_data(self, layer_type="noise", grid_size=50):
+        """
+        Generuje dane do heatmapy.
+        layer_type: "noise" lub "green" lub "heat"
+        grid_size: gęstość siatki (im więcej, tym dokładniejsza mapa, ale wolniejsza)
+        """
+        """
+                Generuje dane do heatmapy dla warstw: noise, green, heat.
+                """
+        # 1. Granice obszaru
+        nodes, _ = ox.graph_to_gdfs(self.G)
+        min_lon, min_lat, max_lon, max_lat = nodes.total_bounds
+
+        # 2. Siatka punktów
+        lat_coords = np.linspace(min_lat, max_lat, grid_size)
+        lon_coords = np.linspace(min_lon, max_lon, grid_size)
+        points = [
+            {'geometry': ox.utils_geo.Point(lon, lat), 'lat': lat, 'lon': lon}
+            for lat in lat_coords for lon in lon_coords]
+
+        grid_gdf = gpd.GeoDataFrame(points, crs="EPSG:4326")
+        heatmap_points = []
+
+        # --- WARSTWA: GREEN ---
+        if layer_type == "green":
+            if self.local_data.greenery_df.empty:
+                return []
+
+            green = self.local_data.greenery_df.to_crs("EPSG:4326")
+            joined = gpd.sjoin(grid_gdf, green, how="inner",
+                               predicate="within")
+
+            for _, row in joined.iterrows():
+                heatmap_points.append([row['lat'], row['lon'], 0.8])
+            return heatmap_points
+
+        # --- WARSTWA: NOISE ---
+        elif layer_type == "noise":
+            if self.local_data.noise_map_df.empty:
+                return []
+
+            noise = self.local_data.noise_map_df.to_crs("EPSG:4326")
+            val_col = next((c for c in noise.columns if "iso" in c.lower()),
+                           None)
+
+            joined = gpd.sjoin(grid_gdf, noise, how="inner",
+                               predicate="within")
+            for _, row in joined.iterrows():
+                try:
+                    val = float(row[val_col]) if val_col else 0.5
+                    heatmap_points.append(
+                        [row['lat'], row['lon'], val / 150.0])
+                except:
+                    continue
+            return heatmap_points
+
+        return []
