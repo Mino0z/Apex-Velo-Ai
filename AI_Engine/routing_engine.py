@@ -20,17 +20,17 @@ WEIGHTS = {
         "noise": 0.5,
         "density": 0.5,
         "heat": 0.5,
-        "green": 5.0,
-        "poi": 1.0,
+        "green": 8.0,
+        "poi": 2.0,
         "tram": 0.5
     },
     "safe": {
-        "noise": 4.0,
-        "density": 2.0,
+        "noise": 8.0,
+        "density": 3.0,
         "heat": 2.0,
         "green": 1.0,
         "poi": 0.5,
-        "tram": 3.0
+        "tram": 4.0
     },
     "fast": {
         "noise": 0.1,
@@ -229,7 +229,7 @@ class RoutingEngine:
             w["density"] * f["density"] -
             w["green"] * f["green"] -
             w["bike"] * f["bike"] +
-            0.3 * f["length_norm"]
+            0.05 * f["length_norm"]
         )
 
     # =========================
@@ -295,7 +295,7 @@ class RoutingEngine:
                     overlap_penalty -
                     weights["green"] * f.get("green", 0) -
                     weights["poi"] * f.get("poi_score", 0) +
-                    + 0.5 * f.get("length_norm", 0)
+                    + 0.05 * f.get("length_norm", 0)
             )
             return max(0.01, cost)
 
@@ -391,3 +391,35 @@ class RoutingEngine:
             return heatmap_points
 
         return []
+
+        # =========================
+        # ISTNIEJĄCE ŚCIEŻKI ROWEROWE
+        # =========================
+    def get_existing_bike_paths(self, as_geojson=True):
+            """
+            Zwraca wszystkie istniejące ścieżki rowerowe w obszarze grafu.
+            as_geojson: True -> zwróci GeoJSON do frontendu
+                        False -> zwróci listę współrzędnych [(lat, lon), ...]
+            """
+            edges = ox.graph_to_gdfs(self.G, nodes=False)
+
+            # Filtracja typowych dróg rowerowych z OSM
+            bike_edge_types = ["cycleway", "path", "track", "residential",
+                               "living_street"]
+            if "highway" in edges.columns:
+                edges = edges[edges["highway"].isin(bike_edge_types)]
+
+            # Konwersja do WGS84
+            edges = edges.to_crs("EPSG:4326")
+
+            if as_geojson:
+                return edges.to_json()
+            else:
+                paths = []
+                for geom in edges.geometry:
+                    if geom.geom_type == "LineString":
+                        paths.append(list(geom.coords))
+                    elif geom.geom_type == "MultiLineString":
+                        for line in geom.geoms:
+                            paths.append(list(line.coords))
+                return paths

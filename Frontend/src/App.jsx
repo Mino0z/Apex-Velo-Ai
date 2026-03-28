@@ -96,6 +96,8 @@ export default function App() {
   const [heatmapData, setHeatmapData] = useState([]);
   const [showHeatmap, setShowHeatmap] = useState(false);
 
+  const [bikePaths, setBikePaths] = useState([]); // 🌟 stan ścieżek rowerowych
+
   const API_URL = "http://localhost:8000";
 
   // 🔥 HEATMAP FETCH
@@ -108,6 +110,26 @@ export default function App() {
       console.error("Heatmap error:", err);
     }
   };
+
+  // 🌿 FETCH BIKE PATHS (raz przy starcie)
+  const fetchBikePaths = async () => {
+    try {
+      const res = await fetch(`${API_URL}/bike_paths`);
+      const data = await res.json();
+      if (data.features) {
+        const paths = data.features.map((f) =>
+          f.geometry.coordinates.map(([lon, lat]) => [lat, lon])
+        );
+        setBikePaths(paths);
+      }
+    } catch (err) {
+      console.error("Bike paths error:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchBikePaths(); // pobieramy ścieżki tylko raz
+  }, []);
 
   useEffect(() => {
     if (showHeatmap) {
@@ -176,14 +198,24 @@ export default function App() {
           {start && <Marker position={[start.lat, start.lon]} />}
           {end && <Marker position={[end.lat, end.lon]} />}
 
-          {route.length > 0 && <Polyline positions={route} />}
+          {/* 🌿 ŚCIEŻKI ROWEROWE */}
+          {bikePaths.map((path, i) => (
+            <Polyline
+              key={i}
+              positions={path}
+              color="blue"
+              weight={3}
+              opacity={0.2}
+            />
+          ))}
+
+          {/* 🚴 WYGENEROWANA TRASA */}
+          {route.length > 0 && <Polyline positions={route} color="red" weight={6} />}
 
           <FitBounds route={route} />
 
           {/* 🔥 HEATMAP */}
-          {showHeatmap && heatmapData.length > 0 && (
-            <Heatmap points={heatmapData} />
-          )}
+          {showHeatmap && heatmapData.length > 0 && <Heatmap points={heatmapData} />}
         </MapContainer>
       </div>
 
@@ -233,14 +265,18 @@ export default function App() {
 
         <h3>Start:</h3>
         {start ? (
-          <p>{start.lat.toFixed(5)}, {start.lon.toFixed(5)}</p>
+          <p>
+            {start.lat.toFixed(5)}, {start.lon.toFixed(5)}
+          </p>
         ) : (
           <p>Brak</p>
         )}
 
         <h3>Koniec:</h3>
         {end ? (
-          <p>{end.lat.toFixed(5)}, {end.lon.toFixed(5)}</p>
+          <p>
+            {end.lat.toFixed(5)}, {end.lon.toFixed(5)}
+          </p>
         ) : (
           <p>Brak</p>
         )}
