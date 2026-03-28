@@ -2,146 +2,158 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { MapContainer, TileLayer, Polyline, Marker, Popup } from 'react-leaflet';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { Bike, Wind, Shield, Zap, Info } from 'lucide-react';
+import { Bike, Shield, Wind, Zap, Activity, Info, Map as MapIcon } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
-const mockRoute = [
-  [50.0647, 19.9450], [50.0614, 19.9365], [50.0580, 19.9340], [50.0520, 19.9400]
-];
+// --- STYLE KOLEGI (Tailwind & Custom) ---
+// Upewnij się, że w index.css masz tailwinda lub dodaj <script src="https://cdn.tailwindcss.com"></script> w index.html
 
-const initialNoiseData = [
-  { time: '0%', db: 45 }, { time: '25%', db: 65 }, { time: '50%', db: 50 },
-  { time: '75%', db: 70 }, { time: '100%', db: 40 }
-];
+const mockRoute = [[50.0647, 19.9450], [50.0614, 19.9365], [50.0580, 19.9340], [50.0520, 19.9400]];
 
 function App() {
   const [safetyWeight, setSafetyWeight] = useState(50);
   const [ecoWeight, setEcoWeight] = useState(50);
   const [currentRoute, setCurrentRoute] = useState(mockRoute);
-  const [noiseData, setNoiseData] = useState(initialNoiseData);
-  const [loading, setLoading] = useState(false);
   const [backendStatus, setBackendStatus] = useState("System gotowy");
+  const [loading, setLoading] = useState(false);
 
   const generateRoute = async () => {
     setLoading(true);
-    setBackendStatus("Łączenie z silnikiem analizy...");
+    setBackendStatus("Analiza korytarza powietrznego...");
     
-    // 1. "PSUCIE" TRASY (Dla efektu wizualnego)
-    const wiggledRoute = currentRoute.map(p => [
-      p[0] + (Math.random() - 0.5) * 0.002, 
-      p[1] + (Math.random() - 0.5) * 0.002
-    ]);
-    setCurrentRoute(wiggledRoute);
+    // Wizualne "drganie" trasy
+    setCurrentRoute(currentRoute.map(p => [p[0] + (Math.random() - 0.5) * 0.001, p[1] + (Math.random() - 0.5) * 0.001]));
 
-    // 2. Symulacja zmiany wykresu
-    const randomData = noiseData.map(d => ({
-      ...d,
-      db: Math.floor(Math.random() * 40) + 35 
-    }));
-    setNoiseData(randomData);
-
-    // 3. Wysłanie danych do Pythona
     try {
       const response = await axios.get('http://127.0.0.1:8000/api/test', {
-        params: {
-          safety: safetyWeight,
-          eco: ecoWeight
-        }
+        params: { safety: safetyWeight, eco: ecoWeight }
       });
-      // Tu odbieramy wiadomość z Twojego nowego main.py!
       setBackendStatus(response.data.message);
-      console.log("Dane z backendu:", response.data);
-    } catch (error) {
-      setBackendStatus("Błąd: Backend nie odpowiada.");
-      console.error(error);
+    } catch (e) {
+      setBackendStatus("Błąd połączenia z Apex Engine");
     } finally {
-      setTimeout(() => setLoading(false), 800);
+      setTimeout(() => setLoading(false), 1000);
     }
   };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', width: '100vw', fontFamily: 'Inter, sans-serif', overflow: 'hidden' }}>
+    <div className="bg-[#131315] text-[#e5e1e4] font-sans h-screen flex flex-col overflow-hidden">
       
-      {/* SIDEBAR */}
-      <div style={{ width: '350px', background: '#1e293b', color: 'white', padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px', boxShadow: '4px 0 15px rgba(0,0,0,0.3)', zIndex: 1001 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Bike size={32} color="#22c55e" />
-          <h2 style={{ margin: 0, fontSize: '1.5rem' }}>SafeTransit</h2>
-        </div>
-
-        {/* STATUS Z BACKENDU */}
-        <div style={{ background: '#0f172a', padding: '10px', borderRadius: '8px', borderLeft: '4px solid #22c55e', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Info size={16} color="#22c55e" />
-          <span>{backendStatus}</span>
-        </div>
-
-        <div style={{ background: '#334155', padding: '15px', borderRadius: '10px' }}>
-          <p style={{ margin: '0 0 10px 0', fontSize: '0.9rem', color: '#94a3b8' }}>PREFERENCJE TRASY</p>
-          
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><Shield size={14}/> Bezpieczeństwo</span>
-              <span>{safetyWeight}%</span>
-            </label>
-            <input 
-              type="range" 
-              style={{ width: '100%', accentColor: '#22c55e' }} 
-              value={safetyWeight} 
-              onChange={(e) => setSafetyWeight(Number(e.target.value))}
-            />
+      {/* HEADER - Inspirowany designem kolegi */}
+      <header className="h-16 border-b border-white/5 bg-[#131315]/80 backdrop-blur-xl flex items-center justify-between px-6 z-50">
+        <div className="flex items-center gap-2">
+          <div className="bg-primary/20 p-2 rounded-lg">
+            <Bike className="text-[#4fe172]" size={24} />
           </div>
+          <span className="text-2xl font-bold bg-gradient-to-r from-[#4fe172] to-[#20bf55] bg-clip-text text-transparent font-headline">
+            Apex Velo AI
+          </span>
+        </div>
+        <div className="flex items-center gap-4 text-sm font-medium text-zinc-500">
+          <span className="text-[#4fe172] border-b-2 border-[#4fe172]">Symulacja</span>
+          <span className="hover:text-white cursor-pointer transition-colors">Analityka</span>
+          <div className="w-8 h-8 rounded-full border border-[#4fe172]/20 bg-zinc-800 ml-4"></div>
+        </div>
+      </header>
 
+      <div className="flex flex-1 overflow-hidden">
+        
+        {/* SIDEBAR LEWY - Parametry i Kontrola */}
+        <aside className="w-80 border-r border-white/5 bg-[#131315] p-6 flex flex-col gap-6 overflow-y-auto">
           <div>
-            <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><Wind size={14}/> Ekologia (Zieleń)</span>
-              <span>{ecoWeight}%</span>
-            </label>
-            <input 
-              type="range" 
-              style={{ width: '100%', accentColor: '#22c55e' }} 
-              value={ecoWeight} 
-              onChange={(e) => setEcoWeight(Number(e.target.value))}
-            />
+            <h2 className="text-[#4fe172] font-black text-xs uppercase tracking-widest mb-1">City Planning</h2>
+            <p className="text-zinc-500 text-[10px]">Infrastructure Dashboard v1.0</p>
           </div>
-        </div>
 
-        <div style={{ flexGrow: 1, background: '#334155', padding: '15px', borderRadius: '10px', minHeight: '200px' }}>
-          <p style={{ margin: '0 0 10px 0', fontSize: '0.9rem', color: '#94a3b8' }}>ESTYMOWANY HAŁAS [dB]</p>
-          <ResponsiveContainer width="100%" height={150}>
-            <LineChart data={noiseData}>
-              <Line type="monotone" dataKey="db" stroke="#22c55e" strokeWidth={2} dot={false} />
-              <XAxis dataKey="time" hide />
-              <YAxis hide domain={[0, 100]} />
-              <Tooltip contentStyle={{ background: '#1e293b', border: 'none', color: '#fff', fontSize: '12px' }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+          {/* STATUS BOX */}
+          <div className="bg-zinc-900/50 p-4 rounded-xl border border-white/5">
+             <div className="flex items-center gap-2 mb-2">
+                <Activity size={14} className="text-[#4fe172]" />
+                <span className="text-[10px] font-bold uppercase text-zinc-400">Status Silnika</span>
+             </div>
+             <p className="text-xs text-white italic">"{backendStatus}"</p>
+          </div>
 
-        <button 
-          onClick={generateRoute} 
-          disabled={loading}
-          style={{ 
-            background: loading ? '#475569' : '#22c55e', 
-            color: 'white', border: 'none', padding: '12px', borderRadius: '8px', 
-            fontWeight: 'bold', cursor: 'pointer', display: 'flex', 
-            alignItems: 'center', justifyContent: 'center', gap: '10px' 
-          }}
-        >
-          <Zap size={18} /> {loading ? 'GENEROWANIE...' : 'GENERUJ TRASĘ'}
-        </button>
+          {/* KONTROLKI SUWAKÓW */}
+          <section className="space-y-6">
+            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500 block">Parametry Algorytmu</label>
+            
+            <div className="space-y-4">
+              <div className="bg-zinc-900/30 p-4 rounded-xl border border-white/5">
+                <div className="flex justify-between mb-2">
+                  <span className="text-xs font-bold flex items-center gap-2"><Shield size={14} /> Bezpieczeństwo</span>
+                  <span className="text-xs text-[#4fe172]">{safetyWeight}%</span>
+                </div>
+                <input 
+                  type="range" className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-[#4fe172]"
+                  value={safetyWeight} onChange={(e) => setSafetyWeight(Number(e.target.value))} 
+                />
+              </div>
+
+              <div className="bg-zinc-900/30 p-4 rounded-xl border border-white/5">
+                <div className="flex justify-between mb-2">
+                  <span className="text-xs font-bold flex items-center gap-2"><Wind size={14} /> Ekologia</span>
+                  <span className="text-xs text-[#4fe172]">{ecoWeight}%</span>
+                </div>
+                <input 
+                  type="range" className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-[#4fe172]"
+                  value={ecoWeight} onChange={(e) => setEcoWeight(Number(e.target.value))} 
+                />
+              </div>
+            </div>
+          </section>
+
+          <button 
+            onClick={generateRoute}
+            disabled={loading}
+            className="w-full py-4 bg-gradient-to-r from-[#4fe172] to-[#20bf55] text-[#003913] font-bold rounded-xl flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-emerald-900/20 disabled:opacity-50"
+          >
+            <Zap size={18} fill="currentColor" />
+            {loading ? "PRZELICZANIE..." : "GENERUJ SYMULACJĘ"}
+          </button>
+        </aside>
+
+        {/* MAIN CONTENT - MAPA */}
+        <main className="flex-1 relative bg-zinc-900">
+          <MapContainer center={[50.0614, 19.9365]} zoom={14} className="h-full w-full grayscale contrast-[1.1] brightness-[0.7]">
+            <TileLayer
+              attribution='&copy; CARTO'
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            />
+            <Polyline positions={currentRoute} color="#4fe172" weight={6} opacity={0.8} />
+            <Marker position={[50.0647, 19.9450]}><Popup>Start</Popup></Marker>
+            <Marker position={[50.0520, 19.9400]}><Popup>Koniec</Popup></Marker>
+          </MapContainer>
+
+          {/* FLOATING CARD - Z designu kolegi */}
+          <div className="absolute top-6 left-6 z-[1000] w-72">
+            <div className="bg-[#131315]/90 backdrop-blur-md p-5 rounded-2xl border-l-4 border-[#4fe172] shadow-2xl">
+              <span className="text-[10px] font-black text-[#4fe172] uppercase tracking-tighter">Current Scenario</span>
+              <h3 className="text-xl font-bold text-white mt-1">Kraków City Center</h3>
+              <p className="text-[10px] text-zinc-400 mt-2 leading-relaxed">Analiza redukcji hałasu i smogu dla nowej trasy rowerowej.</p>
+            </div>
+          </div>
+        </main>
       </div>
 
-      <div style={{ flexGrow: 1, position: 'relative' }}>
-        <MapContainer center={[50.0614, 19.9365]} zoom={14} style={{ height: '100%', width: '100%' }}>
-          <TileLayer
-            attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
-            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-          />
-          <Polyline positions={currentRoute} color="#22c55e" weight={5} opacity={0.7} dashArray="10, 10" />
-          <Marker position={[50.0647, 19.9450]}><Popup>Start</Popup></Marker>
-          <Marker position={[50.0520, 19.9400]}><Popup>Koniec</Popup></Marker>
-        </MapContainer>
-      </div>
+      {/* FOOTER - Statystyki z designu kolegi */}
+      <footer className="h-32 border-t border-white/5 bg-[#131315] px-8 py-4 flex items-center gap-8 overflow-x-auto">
+        <div className="flex-shrink-0">
+          <h4 className="text-[10px] font-black text-zinc-500 uppercase mb-2">Impact Scenarios</h4>
+        </div>
+        <div className="flex gap-6">
+           {[
+             { label: "PM2.5 Exposure", val: "-15%", color: "text-[#4fe172]" },
+             { label: "Cycling Uptake", val: "+22%", color: "text-[#4fe172]" },
+             { label: "Noise Pollution", val: "-8dB", color: "text-[#ffb95f]" },
+           ].map((stat, i) => (
+             <div key={i} className="bg-zinc-900/50 p-3 rounded-xl border border-white/5 min-w-[160px]">
+               <p className="text-[9px] uppercase font-bold text-zinc-500">{stat.label}</p>
+               <p className={`text-xl font-bold ${stat.color}`}>{stat.val}</p>
+             </div>
+           ))}
+        </div>
+      </footer>
     </div>
   );
 }
