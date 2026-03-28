@@ -1,6 +1,6 @@
 .DS_Store
 .idea/
-**/.venv/
-**/__pycache__/
-*.pyc
-/AI Engine/data
+/AI_Engine/data
+/AI_Engine/cache
+cache
+AI_Engine/__pycache__/
