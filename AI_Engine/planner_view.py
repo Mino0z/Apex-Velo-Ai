@@ -22,7 +22,7 @@ def draw_planner_map():
 
     # 2. Obliczanie Nowego Korytarza (Widok Planisty)
     # Przykład: Odcinek przez obszar, gdzie brakuje ścieżek
-    start_lat, start_lon = 50.0689, 19.9560  # Okolice Ronda Mogilskiego
+    start_lat, start_lon = 50.0689, 19.9060  # Okolice Ronda Mogilskiego
     end_lat, end_lon = 50.0547, 19.9354  # Wawel
 
     print("🧠 AI oblicza optymalny korytarz...")
