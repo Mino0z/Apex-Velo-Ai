@@ -12,7 +12,7 @@ CACHE_DIR = "cache"
 GRAPH_FILE = os.path.join(CACHE_DIR, "graph.pkl")  # wersjonowanie cache
 
 KRAKOW_CENTER = (50.0647, 19.9450)
-DIST = 1000
+DIST = 2000
 
 # ===== WEIGHTS =====
 WEIGHTS = {

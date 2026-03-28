@@ -9,6 +9,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+import sys
+sys.path.append("/app")
+
 # =========================
 # 🔧 PATH FIX (NAJWAŻNIEJSZE)
 # =========================
@@ -18,6 +21,10 @@ CACHE_DIR = AI_ENGINE_DIR / "cache"
 
 sys.path.append(str(BASE_DIR))
 sys.path.append(str(AI_ENGINE_DIR))
+
+print("BASE_DIR:", BASE_DIR)
+print("AI_ENGINE_DIR:", AI_ENGINE_DIR)
+print("FILES:", os.listdir(AI_ENGINE_DIR))
 
 # TERAZ import działa
 from AI_Engine.routing_engine import RoutingEngine
