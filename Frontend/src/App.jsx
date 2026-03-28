@@ -4,25 +4,21 @@ import {
   Bike, Zap, Activity, LayoutDashboard, Map as MapIcon, 
   Search, Bell, Radio, Navigation, Edit3,
   BarChart3, Layers, ShieldAlert, Thermometer, FileText, PlusCircle,
-  Settings, Heart, Leaf, Gauge, Trash2, CheckCircle2, RefreshCw, ChevronDown
+  Settings, Heart, Leaf, Gauge, Trash2, CheckCircle2, RefreshCw, ChevronDown,
+  Hub, Link2Off, TrendingUp, Info, ExternalLink
 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
 // --- DATA MOCKS ---
-const routes = {
-  green: [[50.0647, 19.9450], [50.0680, 19.9550], [50.0750, 19.9600]],
-  fastest: [[50.0647, 19.9450], [50.0614, 19.9365], [50.0580, 19.9340]]
-};
-
-const incidents = [
-  { pos: [50.0620, 19.9400], severity: 'high', label: 'Collision Zone' },
-  { pos: [50.0710, 19.9500], severity: 'medium', label: 'High Congestion' }
+const corridorData = [
+  { id: 'CX-402', name: 'Downtown Central Bypass', length: '1.42 Miles', spec: 'Barrier-Separated', impact: '9.8/10', status: 'high' },
+  { id: 'CX-811', name: 'Riverside Extension', length: '0.85 Miles', spec: 'Curb-Protected', impact: '8.4/10', status: 'medium' },
+  { id: 'CX-129', name: 'University Link Phase II', length: '2.10 Miles', spec: 'Two-Way Cycleway', impact: '9.2/10', status: 'high' }
 ];
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard'); 
   const [selectedRoute, setSelectedRoute] = useState('green');
-  const [ridingStyle, setRidingStyle] = useState('eco');
 
   return (
     <div className="bg-[#131315] text-[#e5e1e4] font-sans h-screen flex overflow-hidden">
@@ -30,7 +26,7 @@ function App() {
       {/* --- SIDEBAR --- */}
       <aside className="w-72 border-r border-white/5 bg-[#09090B] flex flex-col py-8 px-4 z-50">
         <div className="mb-10 px-4">
-          <div className="flex items-center gap-3 mb-1">
+          <div className="flex items-center gap-3">
             <div className="p-2 bg-[#4FE172]/10 rounded-lg">
               <Bike className="text-[#4FE172]" size={28} />
             </div>
@@ -45,16 +41,14 @@ function App() {
           <NavButton active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<LayoutDashboard size={18}/>} label="Dashboard" />
           <NavButton active={activeTab === 'planner'} onClick={() => setActiveTab('planner')} icon={<MapIcon size={18}/>} label="Route Planner" />
           <NavButton active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} icon={<BarChart3 size={18}/>} label="City Analytics" />
+          <NavButton active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} icon={<FileText size={18}/>} label="Connectivity Report" />
           <NavButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<Settings size={18}/>} label="Settings" />
         </nav>
 
-        {/* User Mini Profile in Sidebar */}
-        <div className="mt-auto p-4 border-t border-white/5 flex items-center gap-3">
-          <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Alex" className="w-10 h-10 rounded-full border border-[#4FE172]" alt="avatar" />
-          <div>
-            <p className="text-sm font-bold">Alex Chen</p>
-            <p className="text-[10px] text-zinc-500 uppercase tracking-tighter">Pro Navigator</p>
-          </div>
+        <div className="mt-auto p-4 border-t border-white/5">
+           <button className="w-full py-3 bg-zinc-900 text-xs font-black uppercase tracking-widest rounded-xl hover:bg-zinc-800 transition-all">
+             New Simulation
+           </button>
         </div>
       </aside>
 
@@ -63,115 +57,108 @@ function App() {
         
         {/* HEADER */}
         <header className="sticky top-0 h-20 bg-[#09090B]/70 backdrop-blur-xl flex items-center justify-between px-8 border-b border-white/5 z-40">
-          <h1 className="text-xl font-black text-[#20BF55] uppercase font-headline">
-            {activeTab.replace('_', ' ')}
-          </h1>
-          <div className="flex items-center gap-6">
-            <div className="flex gap-4 text-zinc-400">
-               <Bell size={20} className="hover:text-[#4FE172] cursor-pointer" />
-               <Radio size={20} className="hover:text-[#4FE172] cursor-pointer" />
-               <ChevronDown size={20} className="hover:text-[#4FE172] cursor-pointer" />
-            </div>
+          <div className="flex items-center gap-4">
+             <h1 className="text-xl font-black text-[#20BF55] uppercase font-headline">
+               {activeTab.replace('_', ' ')}
+             </h1>
+          </div>
+          <div className="flex items-center bg-zinc-900/50 px-4 py-2 rounded-full border border-white/5">
+            <Search size={14} className="text-zinc-500 mr-2" />
+            <input className="bg-transparent border-none focus:ring-0 text-xs w-48" placeholder="Search corridors..." />
           </div>
         </header>
 
-        {/* DYNAMIC CONTENT LAYERS */}
-        <div className="flex-1 relative">
+        {/* WORKSPACE */}
+        <div className="flex-1 p-8">
           
-          {/* MAP LAYER (Only for Dashboard, Planner, Analytics) */}
-          {activeTab !== 'settings' && (
-            <div className="absolute inset-0 z-0">
-              <MapContainer center={[50.0614, 19.9365]} zoom={14} className="h-full w-full grayscale contrast-[1.2] brightness-[0.4]">
-                <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
-                {activeTab === 'planner' && (
-                   <Polyline positions={routes[selectedRoute]} color={selectedRoute === 'green' ? "#4FE172" : "#ef4444"} weight={8} />
-                )}
-                {activeTab === 'analytics' && incidents.map((inc, i) => (
-                  <CircleMarker key={i} center={inc.pos} radius={20} pathOptions={{ color: '#ef4444', fillOpacity: 0.3, stroke: false }} />
-                ))}
-              </MapContainer>
-            </div>
-          )}
-
-          {/* --- VIEW: SETTINGS & PROFILE --- */}
-          {activeTab === 'settings' && (
-            <div className="relative z-10 p-10 max-w-5xl mx-auto space-y-12">
-              
-              {/* Hero Profile Card */}
-              <div className="grid grid-cols-12 gap-6 bg-zinc-900/50 p-8 rounded-3xl border border-white/5 relative overflow-hidden">
-                <div className="col-span-7">
-                  <span className="text-[10px] font-black text-[#4FE172] uppercase tracking-[0.2em] mb-2 block">Active Profile</span>
-                  <h2 className="text-5xl font-black font-headline tracking-tighter mb-6 uppercase">Alex Chen</h2>
-                  <div className="flex gap-4">
-                    <StatBadge label="Level" value="Elite Rider" />
-                    <StatBadge label="Joined" value="Mar 2024" />
-                  </div>
+          {/* --- VIEW: CONNECTIVITY REPORT --- */}
+          {activeTab === 'reports' && (
+            <div className="max-w-7xl mx-auto space-y-10">
+              {/* Report Header */}
+              <div className="flex justify-between items-end">
+                <div>
+                  <h2 className="text-4xl font-black font-headline tracking-tighter mb-2">NETWORK CONNECTIVITY</h2>
+                  <p className="text-zinc-500 max-w-xl text-sm">Visualizing urban cycling permeability and infrastructure cohesion across the metro area.</p>
                 </div>
-                <div className="col-span-5 text-right flex flex-col justify-end">
-                   <p className="text-[10px] text-zinc-500 uppercase font-bold mb-1">Smog Avoided</p>
-                   <div className="text-6xl font-black text-[#4FE172] font-headline tracking-tighter">1,248<span className="text-xl ml-2">m³</span></div>
+                <div className="text-right">
+                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Global Connectivity Score</span>
+                  <div className="text-6xl font-black text-[#4FE172] font-headline">74.2</div>
                 </div>
-                <Leaf className="absolute -right-8 -bottom-8 text-[#4FE172]/5 w-64 h-64" />
               </div>
 
-              {/* Preferences Grid */}
-              <div className="grid grid-cols-2 gap-10">
-                <section className="space-y-6">
-                  <h3 className="font-headline font-bold text-lg flex items-center gap-3">
-                    <div className="w-8 h-0.5 bg-[#4FE172]"></div> RIDING STYLE
-                  </h3>
-                  <div className="space-y-3">
-                    <StyleOption 
-                      active={ridingStyle === 'eco'} 
-                      onClick={() => setRidingStyle('eco')}
-                      icon={<Leaf size={20}/>} 
-                      title="Eco-friendly" 
-                      desc="Prioritize parks and low-emission zones" 
-                    />
-                    <StyleOption 
-                      active={ridingStyle === 'speed'} 
-                      onClick={() => setRidingStyle('speed')}
-                      icon={<Zap size={20}/>} 
-                      title="Speed-priority" 
-                      desc="Direct routes using main arteries" 
-                    />
+              {/* Top Section: Map & Critical Links */}
+              <div className="grid grid-cols-12 gap-6">
+                <div className="col-span-8 bg-zinc-900/50 rounded-3xl h-[450px] relative overflow-hidden border border-white/5">
+                  <div className="absolute inset-0 grayscale opacity-30">
+                     <MapContainer center={[50.0614, 19.9365]} zoom={13} zoomControl={false} className="h-full w-full">
+                        <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+                     </MapContainer>
                   </div>
-                </section>
-
-                <section className="space-y-6">
-                  <h3 className="font-headline font-bold text-lg flex items-center gap-3">
-                    <div className="w-8 h-0.5 bg-orange-400"></div> HEALTH DATA
-                  </h3>
-                  <div className="bg-zinc-900/50 p-6 rounded-2xl border border-white/5 space-y-6">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm flex items-center gap-2"><Heart size={16} className="text-red-500"/> Pollution Exposure Tracking</span>
-                      <div className="w-10 h-5 bg-[#4FE172] rounded-full relative"><div className="absolute right-1 top-1 w-3 h-3 bg-white rounded-full"></div></div>
-                    </div>
+                  <div className="absolute top-6 left-6 p-4 bg-zinc-950/80 backdrop-blur-md rounded-2xl border border-white/10">
+                    <h4 className="text-[10px] font-black uppercase mb-3">Connectivity Heatmap</h4>
                     <div className="space-y-2">
-                       <div className="flex justify-between text-[10px] font-bold text-zinc-500 uppercase"><span>Weekly Limit</span><span>72%</span></div>
-                       <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden"><div className="h-full bg-orange-400 w-[72%]"></div></div>
+                       <LegendItem color="bg-[#4FE172]" label="Fully Integrated" />
+                       <LegendItem color="bg-orange-500" label="Disconnected" />
+                       <LegendItem color="bg-red-500" label="Broken Link" />
                     </div>
-                    <button className="w-full py-3 bg-[#4FE172] text-[#003913] font-bold rounded-xl flex items-center justify-center gap-2 hover:brightness-110 transition-all">
-                      <RefreshCw size={16} /> Sync Apple Health
-                    </button>
                   </div>
-                </section>
+                </div>
+
+                <div className="col-span-4 space-y-6">
+                   <div className="bg-red-500/5 border border-red-500/20 p-6 rounded-3xl">
+                      <h4 className="text-red-500 font-bold flex items-center gap-2 mb-4 text-sm uppercase tracking-wider">
+                        <Link2Off size={16}/> Critical Broken Links
+                      </h4>
+                      <div className="space-y-3">
+                         <LinkIssue title="Bridge St. Intersection" desc="200m gap between bike lanes" />
+                         <LinkIssue title="Westside Viaduct" desc="Hazardous arterial crossing" />
+                      </div>
+                   </div>
+                   <div className="bg-[#4FE172]/5 border border-[#4FE172]/20 p-6 rounded-3xl">
+                      <h4 className="text-[#4FE172] font-bold flex items-center gap-2 mb-2 text-sm uppercase tracking-wider">
+                        Transit Integration
+                      </h4>
+                      <div className="text-3xl font-black mb-4">88% <span className="text-xs font-normal text-zinc-500">+12% vs LY</span></div>
+                      <div className="flex items-end gap-1 h-12">
+                         {[30, 50, 45, 70, 60, 90].map((h, i) => (
+                           <div key={i} style={{ height: `${h}%` }} className="flex-1 bg-[#4FE172]/40 rounded-t-sm"></div>
+                         ))}
+                      </div>
+                   </div>
+                </div>
               </div>
 
-              {/* Danger Zone */}
-              <div className="pt-10 border-t border-white/5 flex items-center justify-between opacity-60 hover:opacity-100 transition-opacity">
-                 <div>
-                    <h4 className="text-red-500 font-bold">Danger Zone</h4>
-                    <p className="text-xs text-zinc-500">Permanently delete your ride history</p>
-                 </div>
-                 <button className="px-6 py-2 border border-red-500/30 text-red-500 text-xs font-bold rounded-lg hover:bg-red-500/10 transition-colors">
-                    Delete Account
-                 </button>
+              {/* Bottom Section: Table */}
+              <div className="bg-zinc-900/30 border border-white/5 rounded-3xl p-8">
+                <h3 className="text-xl font-bold mb-6 font-headline tracking-tight">Recommended Connecting Corridors</h3>
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] border-b border-white/5">
+                      <th className="pb-4">Corridor ID</th>
+                      <th className="pb-4">Project Name</th>
+                      <th className="pb-4">Length</th>
+                      <th className="pb-4 text-right">Impact Score</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {corridorData.map((row, i) => (
+                      <tr key={i} className="group hover:bg-white/5 transition-colors border-b border-white/5 last:border-0">
+                        <td className="py-6 font-mono text-xs text-zinc-500">{row.id}</td>
+                        <td className="py-6 font-bold">{row.name}</td>
+                        <td className="py-6 text-zinc-400 text-sm">{row.length}</td>
+                        <td className={`py-6 text-right font-black ${row.status === 'high' ? 'text-[#4FE172]' : 'text-orange-400'}`}>
+                          {row.impact}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}
 
-          {/* ... (Tu trzymaj Dashboard i Planner z poprzednich kroków) ... */}
+          {/* ... Pozostałe widoki ... */}
+          {activeTab === 'dashboard' && <div className="text-center py-20 opacity-20 text-4xl font-black">DASHBOARD VIEW</div>}
         </div>
       </main>
     </div>
@@ -185,26 +172,19 @@ const NavButton = ({ active, onClick, icon, label }) => (
   </button>
 );
 
-const StatBadge = ({ label, value }) => (
-  <div className="px-4 py-2 bg-white/5 rounded-xl border border-white/5">
-    <p className="text-[9px] text-zinc-500 uppercase font-bold tracking-tighter">{label}</p>
-    <p className="text-sm font-bold text-white">{value}</p>
+const LegendItem = ({ color, label }) => (
+  <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-400 uppercase">
+    <div className={`w-2 h-2 rounded-full ${color}`}></div> {label}
   </div>
 );
 
-const StyleOption = ({ active, icon, title, desc, onClick }) => (
-  <div 
-    onClick={onClick}
-    className={`p-5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${active ? 'bg-[#4FE172]/5 border-[#4FE172] shadow-lg shadow-emerald-500/5' : 'bg-zinc-900/30 border-white/5 hover:bg-zinc-800'}`}
-  >
-    <div className="flex items-center gap-4">
-      <div className={`p-3 rounded-full ${active ? 'bg-[#4FE172] text-[#003913]' : 'bg-zinc-800 text-zinc-500'}`}>{icon}</div>
-      <div>
-        <h4 className={`font-bold text-sm ${active ? 'text-white' : 'text-zinc-400'}`}>{title}</h4>
-        <p className="text-[11px] text-zinc-500">{desc}</p>
-      </div>
+const LinkIssue = ({ title, desc }) => (
+  <div className="p-4 bg-black/20 rounded-xl flex justify-between items-center group cursor-pointer hover:bg-black/40 transition-all">
+    <div>
+      <h5 className="text-xs font-bold text-white mb-0.5">{title}</h5>
+      <p className="text-[10px] text-zinc-500">{desc}</p>
     </div>
-    {active && <CheckCircle2 className="text-[#4FE172]" size={20} />}
+    <ChevronDown size={14} className="-rotate-90 text-zinc-600 group-hover:text-white" />
   </div>
 );
 
