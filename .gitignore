@@ -3,3 +3,4 @@
 /AI_Engine/data
 /AI_Engine/cache
 cache
+AI_Engine/__pycache__/
