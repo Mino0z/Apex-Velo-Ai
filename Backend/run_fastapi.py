@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from pathlib import Path
+from fastapi.middleware.cors import CORSMiddleware
 
 # 1. KONFIGURACJA ŚCIEŻEK
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -40,9 +41,19 @@ async def lifespan(app: FastAPI):
     yield
     # Tutaj opcjonalnie sprzątanie przy wyłączaniu serwera
     print("👋 Wyłączanie serwera...")
+
 app = FastAPI(
     title="Apex Velo AI API",
     lifespan=lifespan
+)
+
+# DODAJ TO TUTAJ:
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Pozwala na połączenia z każdego adresu (idealne na hackathon)
+    allow_credentials=True,
+    allow_methods=["*"],  # Pozwala na POST, GET, OPTIONS itd.
+    allow_headers=["*"],
 )
 
 # 2. DEFINICJA ŚCIEŻEK CACHE
