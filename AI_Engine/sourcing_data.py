@@ -38,6 +38,7 @@ class OpenStreetMapData:
     place: str = "Kraków, Poland"
     buildings_df: gpd.GeoDataFrame = field(default_factory=gpd.GeoDataFrame)
     streets_df: gpd.GeoDataFrame = field(default_factory=gpd.GeoDataFrame)
+    tram_df: gpd.GeoDataFrame = field(default_factory=gpd.GeoDataFrame)
 
     def __post_init__(self) -> None:
         """Initializes the OpenStreetMapData class by retrieving buildings and streets."""
@@ -45,6 +46,7 @@ class OpenStreetMapData:
         try:
             self._fetch_buildings()
             self._fetch_streets()
+            self._fetch_trams()
         except Exception as e:
             logging.error(f"Error initializing OSM data: {e}")
 
@@ -63,14 +65,19 @@ class OpenStreetMapData:
         self.streets_df = ox.graph_to_gdfs(graph, nodes=False)
         logging.info(f"Successfully retrieved {len(self.streets_df)} street segments.")
 
-    # @staticmethod
-    # def _calculate_centroid(df: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-    #     """Calculates the centroid of each building polygon."""
-    #     df = df.copy()
-    #     df["centroid"] = df.geometry.centroid
-    #     df["lat"] = df["centroid"].y
-    #     df["lng"] = df["centroid"].x
-    #     return df.drop(columns=["centroid"])
+    def _fetch_trams(self) -> None:
+        """Pobiera tory tramwajowe bezpośrednio z OSM."""
+        try:
+            # Pobieramy infrastrukturę szynową typu 'tram'
+            self.tram_df = ox.features_from_place(
+                self.place, tags={"railway": "tram"}
+            )[['geometry']].dropna()
+            logging.info(
+                f"Pobrano {len(self.tram_df)} odcinków linii tramwajowych.")
+        except:
+            logging.warning(
+                "Nie znaleziono linii tramwajowych w tym obszarze.")
+            self.tram_df = gpd.GeoDataFrame(columns=['geometry'])
 
     @staticmethod
     def _calculate_centroid(df: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
@@ -118,7 +125,10 @@ class LocalGeoData:
         
         greenery_root = Path(data_cfg.get("GREENERY_DIR"))
         self.greenery_df = self._load_greenery(greenery_root)
-        
+        if not self.noise_map_df.empty:
+            print(f"noise_map_df head:\n{self.noise_map_df.head()}")
+        if not self.greenery_df.empty:
+            print(f"greenery_df head:\n{self.greenery_df.head()}")
         logging.info("Data successfully loaded into DataClass.")
 
     def _read_geo_file(self, path_str: str) -> gpd.GeoDataFrame:
