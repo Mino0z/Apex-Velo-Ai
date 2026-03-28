@@ -103,6 +103,18 @@ def suggest_corridor(req: PlannerRequest):
                             detail="Nie udało się wyznaczyć korytarza.")
 
 
+@app.get("/heatmap/{layer_type}")
+def get_heatmap(layer_type: str):
+    """Zwraca punkty heatmapy: [lat, lon, intensity]"""
+    if engine is None:
+        raise HTTPException(status_code=503, detail="Silnik niegotowy")
+
+    if layer_type not in ["noise", "green"]:
+        raise HTTPException(status_code=400, detail="Nieprawidłowa warstwa")
+
+    data = engine.get_heatmap_data(layer_type=layer_type, grid_size=40)
+    return {"points": data}
+
 if __name__ == "__main__":
     import uvicorn
 
