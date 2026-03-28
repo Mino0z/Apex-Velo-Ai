@@ -2,7 +2,7 @@
 
 **Apex Velo** to oparte na sztucznej inteligencji narzędzie do planowania i analizy infrastruktury rowerowej. Aplikacja łączy dane miejskie (takie jak poziom hałasu i zieleń) z zaawansowanym silnikiem trasowania korytarzy, aby pomóc w optymalizacji inwestycji miejskich pod kątem bezpieczeństwa, wydajności i zwrotu społecznego.
 
-![Zrzut ekranu aplikacji Apex Velo](docs/screenshot.png)
+<img width="886" height="595" alt="Image" src="https://github.com/user-attachments/assets/03c1ffd9-db50-485d-848d-c8789de33b25" />
 
 ---
 
