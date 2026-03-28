@@ -1,36 +1,38 @@
 import React, { useState } from 'react';
-import { MapContainer, TileLayer, Polyline, CircleMarker, Popup, Circle } from 'react-leaflet';
+import { MapContainer, TileLayer, Circle, Marker, Popup } from 'react-leaflet';
 import { 
-  Bike, Zap, Activity, LayoutDashboard, Map as MapIcon, 
-  Search, Bell, Radio, Navigation, Edit3,
-  BarChart3, Layers, ShieldAlert, Thermometer, FileText, PlusCircle,
-  Settings, Heart, Leaf, Gauge, Trash2, CheckCircle2, RefreshCw, ChevronDown,
-  Hub, Link2Off, TrendingUp, Info, ExternalLink, AlertTriangle, Target, MousePointer2
+  Bike, LayoutDashboard, Map as MapIcon, Search, Bell, Settings, 
+  BarChart3, FileText, Target, TrendingUp, Landmark, 
+  ArrowUpRight, Download, Filter, Leaf, HeartPulse, ChevronRight, PlusCircle
 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
-// --- NOWE DANE DLA GAP ANALYSIS ---
-const gapZones = [
-  { name: "Mitte-Wedding Corridor", status: "CRITICAL", potential: "8.4/10", co2: "+12.4", color: "#ef4444", pos: [50.068, 19.955] },
-  { name: "Kreuzberg South Loop", status: "HIGH", potential: "7.9/10", co2: "+8.2", color: "#f97316", pos: [50.055, 19.935] }
+// --- MOCK DANYCH INWESTYCYJNYCH ---
+const investmentProjects = [
+  { id: 1, name: "Vistula North Express Link", cost: "12.8M PLN", sroi: "4.8x", health: "12.4M", traffic: "28%", score: 92 },
+  { id: 2, name: "Old Town Pedestrianization", cost: "4.2M PLN", sroi: "3.2x", health: "8.1M", traffic: "14%", score: 78 },
+  { id: 3, name: "District Connectivity Bridge", cost: "31.5M PLN", sroi: "2.1x", health: "5.2M", traffic: "34%", score: 62 }
 ];
 
 function App() {
-  const [activeTab, setActiveTab] = useState('dashboard'); 
-  const [showHeatmap, setShowHeatmap] = useState(true);
+  const [activeTab, setActiveTab] = useState('dashboard');
 
   return (
     <div className="bg-[#131315] text-[#e5e1e4] font-sans h-screen flex overflow-hidden">
       
-      {/* --- SIDEBAR --- */}
+      {/* --- SIDEBAR (Stały element) --- */}
       <aside className="w-64 border-r border-white/5 bg-[#09090B] flex flex-col py-6 px-4 z-50">
         <div className="mb-10 px-4">
-           <span className="text-xl font-black text-[#4FE172] tracking-tighter uppercase font-headline">Apex Velo</span>
-           <p className="text-[9px] text-zinc-500 font-bold tracking-widest uppercase">Infrastructure Suite</p>
+           <div className="flex items-center gap-2 mb-1">
+             <div className="p-1.5 bg-[#4FE172]/20 rounded-lg"><Bike className="text-[#4FE172]" size={20}/></div>
+             <span className="text-xl font-black text-[#4FE172] tracking-tighter uppercase font-headline">Apex Velo</span>
+           </div>
+           <p className="text-[9px] text-zinc-500 font-bold tracking-widest uppercase">Planning Intelligence</p>
         </div>
 
         <nav className="flex flex-col gap-1 flex-grow">
           <NavButton active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<LayoutDashboard size={18}/>} label="Dashboard" />
+          <NavButton active={activeTab === 'investments'} onClick={() => setActiveTab('investments')} icon={<Landmark size={18}/>} label="Investments" />
           <NavButton active={activeTab === 'gap_analysis'} onClick={() => setActiveTab('gap_analysis')} icon={<Target size={18}/>} label="Gap Analysis" />
           <NavButton active={activeTab === 'planner'} onClick={() => setActiveTab('planner')} icon={<MapIcon size={18}/>} label="Route Planner" />
           <NavButton active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} icon={<BarChart3 size={18}/>} label="City Analytics" />
@@ -38,149 +40,155 @@ function App() {
           <NavButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<Settings size={18}/>} label="Settings" />
         </nav>
 
-        <button className="mt-auto w-full py-3 bg-gradient-to-r from-[#4FE172] to-emerald-600 text-[#003913] font-black text-[10px] uppercase rounded-xl shadow-lg shadow-emerald-500/10 active:scale-95 transition-all">
-          New Simulation
+        <button className="mt-auto w-full py-3 bg-[#4FE172] text-[#003913] font-black text-[10px] uppercase rounded-xl flex items-center justify-center gap-2">
+          <PlusCircle size={14}/> New Simulation
         </button>
       </aside>
 
       {/* --- MAIN CONTENT --- */}
-      <main className="flex-1 relative flex flex-col">
+      <main className="flex-1 overflow-y-auto bg-[#131315] relative brush-texture">
         
-        {/* TOP BAR OVERLAY */}
-        <header className="absolute top-0 left-0 right-0 h-16 z-40 flex items-center justify-between px-8 bg-gradient-to-b from-[#09090B] to-transparent pointer-events-none">
-          <div className="pointer-events-auto bg-zinc-900/80 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 flex items-center gap-4">
-             <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-[#4FE172] animate-pulse"></div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#4FE172]">Live Simulation</span>
-             </div>
-             <div className="h-4 w-px bg-zinc-800"></div>
-             <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={showHeatmap} onChange={() => setShowHeatmap(!showHeatmap)} className="w-3 h-3 rounded bg-zinc-800 border-zinc-700 text-[#4FE172] focus:ring-0" />
-                <span className="text-[10px] font-bold text-zinc-400 uppercase">Show Heatmap</span>
-             </label>
-          </div>
-          <div className="flex gap-4 pointer-events-auto">
-             <div className="w-10 h-10 bg-zinc-900/80 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/10 cursor-pointer hover:bg-[#4FE172]/20"><Bell size={18}/></div>
-             <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Officer" className="w-10 h-10 rounded-xl border border-white/10" alt="profile" />
-          </div>
+        {/* TOP HEADER */}
+        <header className="sticky top-0 h-16 bg-[#131315]/80 backdrop-blur-xl flex items-center justify-between px-8 border-b border-white/5 z-40">
+           <div className="flex items-center gap-4">
+              <h1 className="text-sm font-black uppercase tracking-[0.2em] text-zinc-400">{activeTab.replace('_', ' ')}</h1>
+           </div>
+           <div className="flex items-center gap-6">
+              <div className="relative group hidden md:block">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-[#4FE172]" size={14}/>
+                <input className="bg-zinc-900 border-none rounded-full pl-10 pr-4 py-1.5 text-xs w-64 focus:ring-1 focus:ring-[#4FE172]/50 transition-all" placeholder="Search projects or districts..." />
+              </div>
+              <div className="flex items-center gap-3">
+                 <Bell size={18} className="text-zinc-500 cursor-pointer hover:text-white" />
+                 <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Strategy" className="w-8 h-8 rounded-full border border-white/10" alt="profile" />
+              </div>
+           </div>
         </header>
 
-        {/* MAP / CANVAS */}
-        <div className="flex-1 relative">
-          <div className="absolute inset-0 z-0">
-            <MapContainer center={[50.0614, 19.9365]} zoom={14} zoomControl={false} className="h-full w-full grayscale contrast-[1.1] brightness-[0.5]">
-              <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
-              {showHeatmap && activeTab === 'gap_analysis' && gapZones.map((z, i) => (
-                <Circle key={i} center={z.pos} radius={400} pathOptions={{ color: z.color, fillOpacity: 0.2, stroke: false }} />
-              ))}
-            </MapContainer>
-          </div>
-
-          {/* --- VIEW: INFRASTRUCTURE GAP ANALYSIS --- */}
-          {activeTab === 'gap_analysis' && (
-            <div className="absolute inset-0 z-10 p-6 flex pointer-events-none">
-              
-              {/* Left Insights Panel */}
-              <div className="w-96 bg-zinc-950/80 backdrop-blur-xl rounded-[2rem] border border-white/5 p-8 pointer-events-auto flex flex-col gap-8 shadow-2xl">
+        {/* WORKSPACE */}
+        <div className="p-8 max-w-7xl mx-auto">
+          
+          {/* --- VIEW: INVESTMENT PRIORITIZATION --- */}
+          {activeTab === 'investments' && (
+            <div className="animate-in fade-in duration-500">
+              {/* Header */}
+              <div className="flex justify-between items-end mb-10">
                 <div>
-                  <span className="text-[10px] font-black text-[#4FE172] uppercase tracking-[0.2em] mb-2 block">Perspective</span>
-                  <h2 className="text-3xl font-black font-headline tracking-tighter leading-none">GAP ANALYSIS</h2>
+                  <h2 className="text-4xl font-black font-headline tracking-tighter mb-2">INVESTMENT PRIORITIZATION</h2>
+                  <p className="text-zinc-500 max-w-2xl text-sm">Strategic ranking based on Social Return on Investment (SROI) and 2024-2026 cycle targets.</p>
                 </div>
-
-                <div className="space-y-4">
-                  <GapMetric label="Safety Index Gap" value="-24.8%" status="error" sub="vs Target" />
-                  <GapMetric label="Service Deficiency" value="41.2%" status="warning" sub="Unmet Demand" />
-                </div>
-
-                <div className="flex-grow overflow-hidden flex flex-col">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400">Priority Zones</h3>
-                    <span className="text-[10px] px-2 py-1 bg-[#4FE172]/10 text-[#4FE172] rounded-full font-bold">TOP 5</span>
-                  </div>
-                  <div className="space-y-3 overflow-y-auto pr-2 custom-scrollbar">
-                    {gapZones.map((zone, i) => (
-                      <ZoneCard key={i} zone={zone} />
-                    ))}
-                  </div>
+                <div className="flex gap-3">
+                   <button className="flex items-center gap-2 px-4 py-2 bg-zinc-900 rounded-lg text-xs font-bold border border-white/5 hover:bg-zinc-800 transition-all"><Filter size={14}/> Filter</button>
+                   <button className="flex items-center gap-2 px-4 py-2 bg-[#4FE172] text-[#003913] rounded-lg text-xs font-black"><Download size={14}/> Export Report</button>
                 </div>
               </div>
 
-              {/* Right Legend & Tools */}
-              <div className="ml-auto mt-auto flex flex-col gap-4 items-end pointer-events-auto">
-                 <div className="bg-zinc-950/80 backdrop-blur-md p-6 rounded-3xl border border-white/5 w-64 shadow-2xl">
-                    <h4 className="text-[10px] font-black uppercase text-zinc-500 mb-4 tracking-widest">Map Legend</h4>
-                    <div className="space-y-3">
-                       <LegendItem color="bg-gradient-to-r from-transparent to-[#4FE172]" label="Existing Network" />
-                       <LegendItem color="bg-gradient-to-r from-transparent to-orange-500" label="High Demand Gap" />
-                       <div className="h-px bg-white/5 my-2"></div>
-                       <div className="text-[10px] text-zinc-500 italic">Analysis based on real-time mobility patterns & historic safety data.</div>
+              {/* Top Bento Cards */}
+              <div className="grid grid-cols-12 gap-6 mb-8">
+                {/* SROI Hero Card */}
+                <div className="col-span-4 bg-zinc-900/50 rounded-3xl p-8 border border-white/5 relative overflow-hidden group">
+                   <div className="absolute -top-4 -right-4 text-[#4FE172]/10 group-hover:text-[#4FE172]/20 transition-all">
+                      <TrendingUp size={160} />
+                   </div>
+                   <span className="text-[10px] font-black uppercase text-zinc-500 tracking-widest block mb-6">Highest Projected SROI</span>
+                   <h3 className="text-xl font-bold mb-1">Vistula Corridor Expansion</h3>
+                   <div className="text-5xl font-black text-[#4FE172] mb-6 font-headline">4.8x <span className="text-xs font-normal text-zinc-500">Return</span></div>
+                   <div className="flex gap-6">
+                      <div><p className="text-[10px] text-zinc-500 font-bold uppercase">Smog Red.</p><p className="font-bold text-[#4FE172]">-18.2%</p></div>
+                      <div className="w-px bg-white/5 h-8"></div>
+                      <div><p className="text-[10px] text-zinc-500 font-bold uppercase">Health Savings</p><p className="font-bold">12.4M/y</p></div>
+                   </div>
+                </div>
+
+                {/* Impact vs Cost Matrix */}
+                <div className="col-span-8 bg-zinc-900/50 rounded-3xl p-8 border border-white/5">
+                   <div className="flex justify-between items-center mb-6">
+                      <h3 className="text-sm font-black uppercase tracking-widest text-zinc-400">Impact vs. Cost Matrix</h3>
+                      <div className="flex gap-4 text-[10px] font-bold">
+                         <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[#4FE172]"></div> High Priority</span>
+                         <span className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-orange-500"></div> Moderate</span>
+                      </div>
+                   </div>
+                   <div className="h-48 w-full border-l border-b border-white/10 relative flex items-end justify-center">
+                      <div className="absolute bottom-[-20px] text-[9px] font-black text-zinc-600 uppercase tracking-widest">Implementation Cost</div>
+                      <div className="absolute left-[-40px] top-1/2 -rotate-90 text-[9px] font-black text-zinc-600 uppercase tracking-widest">Social Impact</div>
+                      
+                      {/* Plot Points */}
+                      <div className="absolute top-[20%] left-[80%] w-4 h-4 bg-[#4FE172] rounded-full shadow-lg shadow-[#4FE172]/20 animate-pulse cursor-pointer"></div>
+                      <div className="absolute top-[50%] left-[40%] w-3 h-3 bg-[#4FE172]/60 rounded-full border border-[#4FE172] cursor-pointer"></div>
+                      <div className="absolute top-[70%] left-[20%] w-2 h-2 bg-orange-500 rounded-full cursor-pointer"></div>
+                   </div>
+                </div>
+              </div>
+
+              {/* Ranking List & Metrics */}
+              <div className="grid grid-cols-12 gap-8">
+                <div className="col-span-8 space-y-4">
+                  <h3 className="text-xl font-bold font-headline mb-4">Infrastructure Rankings</h3>
+                  {investmentProjects.map(proj => (
+                    <div key={proj.id} className="bg-zinc-900/30 p-5 rounded-2xl border border-white/5 hover:bg-zinc-800/40 transition-all cursor-pointer group flex items-center gap-6">
+                      <div className="w-10 h-10 rounded-xl bg-zinc-950 flex items-center justify-center font-black text-[#4FE172]">{proj.id}</div>
+                      <div className="flex-grow">
+                        <h4 className="font-bold text-sm mb-1 group-hover:text-[#4FE172] transition-colors">{proj.name}</h4>
+                        <div className="flex gap-4 text-[10px] font-bold text-zinc-500 uppercase">
+                          <span>{proj.cost}</span>
+                          <span>{proj.health} Health Sav.</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                         <p className="text-[10px] text-zinc-500 font-bold uppercase mb-1">Impact Score</p>
+                         <div className="w-24 h-1.5 bg-zinc-950 rounded-full overflow-hidden">
+                           <div className="bg-[#4FE172] h-full" style={{width: `${proj.score}%`}}></div>
+                         </div>
+                      </div>
+                      <ChevronRight size={18} className="text-zinc-700 group-hover:text-white" />
                     </div>
-                 </div>
+                  ))}
+                </div>
+
+                {/* Side Stats */}
+                <div className="col-span-4 space-y-6">
+                   <div className="bg-zinc-900/50 p-6 rounded-3xl border border-white/5">
+                      <h4 className="text-xs font-black uppercase text-zinc-400 mb-6 tracking-widest">Environmental Yield</h4>
+                      <div className="space-y-6">
+                         <YieldMetric label="CO2 Offset Combined" value="450 Tons/y" progress={70} />
+                         <YieldMetric label="PM2.5 Reduction" value="-14.2%" progress={45} />
+                      </div>
+                   </div>
+                   <div className="bg-gradient-to-br from-[#4FE172]/10 to-transparent p-6 rounded-3xl border border-[#4FE172]/20">
+                      <h4 className="font-bold text-sm mb-2">Simulate Budget Shift</h4>
+                      <p className="text-[10px] text-zinc-500 leading-relaxed mb-4">Adjust the 2025 budget by ±15% to see ROI impact.</p>
+                      <button className="w-full py-2 bg-white/5 hover:bg-white/10 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all">Run Optimizer</button>
+                   </div>
+                </div>
               </div>
             </div>
           )}
 
-          {/* Floating Marker Tool (Simulation) */}
-          {activeTab === 'gap_analysis' && (
-            <div className="absolute top-1/2 left-2/3 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-               <div className="relative">
-                  <div className="w-4 h-4 rounded-full bg-[#4FE172] ring-8 ring-[#4FE172]/20 animate-pulse"></div>
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 bg-zinc-900 border border-[#4FE172]/30 p-4 rounded-2xl shadow-2xl w-48 text-center backdrop-blur-xl">
-                    <p className="text-[10px] text-zinc-500 uppercase font-bold">Connectivity Index</p>
-                    <p className="text-lg font-black text-[#4FE172]">0.12km/km²</p>
-                    <p className="text-[9px] text-red-500 font-bold uppercase mt-1">High Deficiency</p>
-                  </div>
-               </div>
-            </div>
-          )}
+          {/* ... Inne widoki (Dashboard, Analytics itp.) ... */}
+          {activeTab === 'dashboard' && <div className="text-center py-20 opacity-20 text-4xl font-black italic">DASHBOARD VIEW ACTIVE</div>}
         </div>
       </main>
     </div>
   );
 }
 
-// --- SUB-COMPONENTS ---
-const GapMetric = ({ label, value, status, sub }) => (
-  <div className={`p-5 rounded-2xl border-l-4 bg-white/5 ${status === 'error' ? 'border-red-500' : 'border-orange-500'}`}>
-    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">{label}</p>
-    <div className="flex items-baseline gap-2">
-       <span className={`text-3xl font-black font-headline ${status === 'error' ? 'text-red-500' : 'text-orange-500'}`}>{value}</span>
-       <span className="text-[10px] font-bold text-zinc-600">{sub}</span>
-    </div>
-  </div>
-);
-
-const ZoneCard = ({ zone }) => (
-  <div className="p-4 bg-zinc-900/50 rounded-2xl border border-white/5 hover:border-[#4FE172]/30 transition-all cursor-pointer group">
-    <div className="flex justify-between items-start mb-3">
-      <h4 className="text-xs font-black text-white group-hover:text-[#4FE172] transition-colors">{zone.name}</h4>
-      <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${zone.status === 'CRITICAL' ? 'bg-red-500/20 text-red-500' : 'bg-orange-500/20 text-orange-500'}`}>
-        {zone.status}
-      </span>
-    </div>
-    <div className="grid grid-cols-2 gap-2">
-      <div className="bg-black/20 p-2 rounded-lg text-center">
-        <p className="text-[8px] text-zinc-500 uppercase font-bold">Potential</p>
-        <p className="text-xs font-black text-[#4FE172]">{zone.potential}</p>
-      </div>
-      <div className="bg-black/20 p-2 rounded-lg text-center">
-        <p className="text-[8px] text-zinc-500 uppercase font-bold">Env. Benefit</p>
-        <p className="text-xs font-black text-[#4FE172]">{zone.co2}</p>
-      </div>
-    </div>
-  </div>
-);
-
+// --- POMOCNICZE KOMPONENTY ---
 const NavButton = ({ active, onClick, icon, label }) => (
-  <button onClick={onClick} className={`flex items-center gap-3 px-6 py-3.5 rounded-2xl transition-all ${active ? 'bg-[#4FE172]/10 text-[#4FE172] border-r-4 border-[#4FE172]' : 'text-zinc-500 hover:text-zinc-200 hover:bg-white/5'}`}>
+  <button onClick={onClick} className={`flex items-center gap-3 px-6 py-3.5 rounded-2xl transition-all ${active ? 'bg-[#4FE172]/10 text-[#4FE172] border-r-4 border-[#4FE172]' : 'text-zinc-500 hover:text-zinc-200'}`}>
     {icon} <span className="text-[10px] font-black uppercase tracking-widest leading-none">{label}</span>
   </button>
 );
 
-const LegendItem = ({ color, label }) => (
-  <div className="flex items-center gap-3">
-    <div className={`w-10 h-1.5 rounded-full ${color}`}></div>
-    <span className="text-[10px] font-bold text-zinc-400 uppercase">{label}</span>
+const YieldMetric = ({ label, value, progress }) => (
+  <div>
+    <div className="flex justify-between text-[10px] font-bold mb-2">
+      <span className="text-zinc-500 uppercase">{label}</span>
+      <span className="text-[#4FE172]">{value}</span>
+    </div>
+    <div className="w-full h-1 bg-zinc-950 rounded-full overflow-hidden">
+      <div className="bg-[#4FE172] h-full" style={{width: `${progress}%`}}></div>
+    </div>
   </div>
 );
 
