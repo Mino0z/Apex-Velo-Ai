@@ -1,190 +1,186 @@
 import React, { useState } from 'react';
-import { MapContainer, TileLayer, Polyline, CircleMarker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Polyline, CircleMarker, Popup, Circle } from 'react-leaflet';
 import { 
   Bike, Zap, Activity, LayoutDashboard, Map as MapIcon, 
   Search, Bell, Radio, Navigation, Edit3,
   BarChart3, Layers, ShieldAlert, Thermometer, FileText, PlusCircle,
   Settings, Heart, Leaf, Gauge, Trash2, CheckCircle2, RefreshCw, ChevronDown,
-  Hub, Link2Off, TrendingUp, Info, ExternalLink
+  Hub, Link2Off, TrendingUp, Info, ExternalLink, AlertTriangle, Target, MousePointer2
 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
-// --- DATA MOCKS ---
-const corridorData = [
-  { id: 'CX-402', name: 'Downtown Central Bypass', length: '1.42 Miles', spec: 'Barrier-Separated', impact: '9.8/10', status: 'high' },
-  { id: 'CX-811', name: 'Riverside Extension', length: '0.85 Miles', spec: 'Curb-Protected', impact: '8.4/10', status: 'medium' },
-  { id: 'CX-129', name: 'University Link Phase II', length: '2.10 Miles', spec: 'Two-Way Cycleway', impact: '9.2/10', status: 'high' }
+// --- NOWE DANE DLA GAP ANALYSIS ---
+const gapZones = [
+  { name: "Mitte-Wedding Corridor", status: "CRITICAL", potential: "8.4/10", co2: "+12.4", color: "#ef4444", pos: [50.068, 19.955] },
+  { name: "Kreuzberg South Loop", status: "HIGH", potential: "7.9/10", co2: "+8.2", color: "#f97316", pos: [50.055, 19.935] }
 ];
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard'); 
-  const [selectedRoute, setSelectedRoute] = useState('green');
+  const [showHeatmap, setShowHeatmap] = useState(true);
 
   return (
     <div className="bg-[#131315] text-[#e5e1e4] font-sans h-screen flex overflow-hidden">
       
       {/* --- SIDEBAR --- */}
-      <aside className="w-72 border-r border-white/5 bg-[#09090B] flex flex-col py-8 px-4 z-50">
+      <aside className="w-64 border-r border-white/5 bg-[#09090B] flex flex-col py-6 px-4 z-50">
         <div className="mb-10 px-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-[#4FE172]/10 rounded-lg">
-              <Bike className="text-[#4FE172]" size={28} />
-            </div>
-            <div>
-              <span className="text-xl font-black tracking-tighter text-[#4FE172] block leading-none">APEX VELO</span>
-              <span className="text-[9px] uppercase tracking-[0.2em] text-zinc-500 font-bold">Kinetic Navigator</span>
-            </div>
-          </div>
+           <span className="text-xl font-black text-[#4FE172] tracking-tighter uppercase font-headline">Apex Velo</span>
+           <p className="text-[9px] text-zinc-500 font-bold tracking-widest uppercase">Infrastructure Suite</p>
         </div>
 
-        <nav className="flex flex-col gap-2 flex-grow">
+        <nav className="flex flex-col gap-1 flex-grow">
           <NavButton active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} icon={<LayoutDashboard size={18}/>} label="Dashboard" />
+          <NavButton active={activeTab === 'gap_analysis'} onClick={() => setActiveTab('gap_analysis')} icon={<Target size={18}/>} label="Gap Analysis" />
           <NavButton active={activeTab === 'planner'} onClick={() => setActiveTab('planner')} icon={<MapIcon size={18}/>} label="Route Planner" />
           <NavButton active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} icon={<BarChart3 size={18}/>} label="City Analytics" />
-          <NavButton active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} icon={<FileText size={18}/>} label="Connectivity Report" />
+          <NavButton active={activeTab === 'reports'} onClick={() => setActiveTab('reports')} icon={<FileText size={18}/>} label="Network Report" />
           <NavButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<Settings size={18}/>} label="Settings" />
         </nav>
 
-        <div className="mt-auto p-4 border-t border-white/5">
-           <button className="w-full py-3 bg-zinc-900 text-xs font-black uppercase tracking-widest rounded-xl hover:bg-zinc-800 transition-all">
-             New Simulation
-           </button>
-        </div>
+        <button className="mt-auto w-full py-3 bg-gradient-to-r from-[#4FE172] to-emerald-600 text-[#003913] font-black text-[10px] uppercase rounded-xl shadow-lg shadow-emerald-500/10 active:scale-95 transition-all">
+          New Simulation
+        </button>
       </aside>
 
       {/* --- MAIN CONTENT --- */}
-      <main className="flex-1 flex flex-col relative overflow-y-auto">
+      <main className="flex-1 relative flex flex-col">
         
-        {/* HEADER */}
-        <header className="sticky top-0 h-20 bg-[#09090B]/70 backdrop-blur-xl flex items-center justify-between px-8 border-b border-white/5 z-40">
-          <div className="flex items-center gap-4">
-             <h1 className="text-xl font-black text-[#20BF55] uppercase font-headline">
-               {activeTab.replace('_', ' ')}
-             </h1>
+        {/* TOP BAR OVERLAY */}
+        <header className="absolute top-0 left-0 right-0 h-16 z-40 flex items-center justify-between px-8 bg-gradient-to-b from-[#09090B] to-transparent pointer-events-none">
+          <div className="pointer-events-auto bg-zinc-900/80 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 flex items-center gap-4">
+             <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-[#4FE172] animate-pulse"></div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#4FE172]">Live Simulation</span>
+             </div>
+             <div className="h-4 w-px bg-zinc-800"></div>
+             <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={showHeatmap} onChange={() => setShowHeatmap(!showHeatmap)} className="w-3 h-3 rounded bg-zinc-800 border-zinc-700 text-[#4FE172] focus:ring-0" />
+                <span className="text-[10px] font-bold text-zinc-400 uppercase">Show Heatmap</span>
+             </label>
           </div>
-          <div className="flex items-center bg-zinc-900/50 px-4 py-2 rounded-full border border-white/5">
-            <Search size={14} className="text-zinc-500 mr-2" />
-            <input className="bg-transparent border-none focus:ring-0 text-xs w-48" placeholder="Search corridors..." />
+          <div className="flex gap-4 pointer-events-auto">
+             <div className="w-10 h-10 bg-zinc-900/80 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/10 cursor-pointer hover:bg-[#4FE172]/20"><Bell size={18}/></div>
+             <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Officer" className="w-10 h-10 rounded-xl border border-white/10" alt="profile" />
           </div>
         </header>
 
-        {/* WORKSPACE */}
-        <div className="flex-1 p-8">
-          
-          {/* --- VIEW: CONNECTIVITY REPORT --- */}
-          {activeTab === 'reports' && (
-            <div className="max-w-7xl mx-auto space-y-10">
-              {/* Report Header */}
-              <div className="flex justify-between items-end">
+        {/* MAP / CANVAS */}
+        <div className="flex-1 relative">
+          <div className="absolute inset-0 z-0">
+            <MapContainer center={[50.0614, 19.9365]} zoom={14} zoomControl={false} className="h-full w-full grayscale contrast-[1.1] brightness-[0.5]">
+              <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+              {showHeatmap && activeTab === 'gap_analysis' && gapZones.map((z, i) => (
+                <Circle key={i} center={z.pos} radius={400} pathOptions={{ color: z.color, fillOpacity: 0.2, stroke: false }} />
+              ))}
+            </MapContainer>
+          </div>
+
+          {/* --- VIEW: INFRASTRUCTURE GAP ANALYSIS --- */}
+          {activeTab === 'gap_analysis' && (
+            <div className="absolute inset-0 z-10 p-6 flex pointer-events-none">
+              
+              {/* Left Insights Panel */}
+              <div className="w-96 bg-zinc-950/80 backdrop-blur-xl rounded-[2rem] border border-white/5 p-8 pointer-events-auto flex flex-col gap-8 shadow-2xl">
                 <div>
-                  <h2 className="text-4xl font-black font-headline tracking-tighter mb-2">NETWORK CONNECTIVITY</h2>
-                  <p className="text-zinc-500 max-w-xl text-sm">Visualizing urban cycling permeability and infrastructure cohesion across the metro area.</p>
+                  <span className="text-[10px] font-black text-[#4FE172] uppercase tracking-[0.2em] mb-2 block">Perspective</span>
+                  <h2 className="text-3xl font-black font-headline tracking-tighter leading-none">GAP ANALYSIS</h2>
                 </div>
-                <div className="text-right">
-                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Global Connectivity Score</span>
-                  <div className="text-6xl font-black text-[#4FE172] font-headline">74.2</div>
-                </div>
-              </div>
 
-              {/* Top Section: Map & Critical Links */}
-              <div className="grid grid-cols-12 gap-6">
-                <div className="col-span-8 bg-zinc-900/50 rounded-3xl h-[450px] relative overflow-hidden border border-white/5">
-                  <div className="absolute inset-0 grayscale opacity-30">
-                     <MapContainer center={[50.0614, 19.9365]} zoom={13} zoomControl={false} className="h-full w-full">
-                        <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
-                     </MapContainer>
+                <div className="space-y-4">
+                  <GapMetric label="Safety Index Gap" value="-24.8%" status="error" sub="vs Target" />
+                  <GapMetric label="Service Deficiency" value="41.2%" status="warning" sub="Unmet Demand" />
+                </div>
+
+                <div className="flex-grow overflow-hidden flex flex-col">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400">Priority Zones</h3>
+                    <span className="text-[10px] px-2 py-1 bg-[#4FE172]/10 text-[#4FE172] rounded-full font-bold">TOP 5</span>
                   </div>
-                  <div className="absolute top-6 left-6 p-4 bg-zinc-950/80 backdrop-blur-md rounded-2xl border border-white/10">
-                    <h4 className="text-[10px] font-black uppercase mb-3">Connectivity Heatmap</h4>
-                    <div className="space-y-2">
-                       <LegendItem color="bg-[#4FE172]" label="Fully Integrated" />
-                       <LegendItem color="bg-orange-500" label="Disconnected" />
-                       <LegendItem color="bg-red-500" label="Broken Link" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="col-span-4 space-y-6">
-                   <div className="bg-red-500/5 border border-red-500/20 p-6 rounded-3xl">
-                      <h4 className="text-red-500 font-bold flex items-center gap-2 mb-4 text-sm uppercase tracking-wider">
-                        <Link2Off size={16}/> Critical Broken Links
-                      </h4>
-                      <div className="space-y-3">
-                         <LinkIssue title="Bridge St. Intersection" desc="200m gap between bike lanes" />
-                         <LinkIssue title="Westside Viaduct" desc="Hazardous arterial crossing" />
-                      </div>
-                   </div>
-                   <div className="bg-[#4FE172]/5 border border-[#4FE172]/20 p-6 rounded-3xl">
-                      <h4 className="text-[#4FE172] font-bold flex items-center gap-2 mb-2 text-sm uppercase tracking-wider">
-                        Transit Integration
-                      </h4>
-                      <div className="text-3xl font-black mb-4">88% <span className="text-xs font-normal text-zinc-500">+12% vs LY</span></div>
-                      <div className="flex items-end gap-1 h-12">
-                         {[30, 50, 45, 70, 60, 90].map((h, i) => (
-                           <div key={i} style={{ height: `${h}%` }} className="flex-1 bg-[#4FE172]/40 rounded-t-sm"></div>
-                         ))}
-                      </div>
-                   </div>
-                </div>
-              </div>
-
-              {/* Bottom Section: Table */}
-              <div className="bg-zinc-900/30 border border-white/5 rounded-3xl p-8">
-                <h3 className="text-xl font-bold mb-6 font-headline tracking-tight">Recommended Connecting Corridors</h3>
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] border-b border-white/5">
-                      <th className="pb-4">Corridor ID</th>
-                      <th className="pb-4">Project Name</th>
-                      <th className="pb-4">Length</th>
-                      <th className="pb-4 text-right">Impact Score</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {corridorData.map((row, i) => (
-                      <tr key={i} className="group hover:bg-white/5 transition-colors border-b border-white/5 last:border-0">
-                        <td className="py-6 font-mono text-xs text-zinc-500">{row.id}</td>
-                        <td className="py-6 font-bold">{row.name}</td>
-                        <td className="py-6 text-zinc-400 text-sm">{row.length}</td>
-                        <td className={`py-6 text-right font-black ${row.status === 'high' ? 'text-[#4FE172]' : 'text-orange-400'}`}>
-                          {row.impact}
-                        </td>
-                      </tr>
+                  <div className="space-y-3 overflow-y-auto pr-2 custom-scrollbar">
+                    {gapZones.map((zone, i) => (
+                      <ZoneCard key={i} zone={zone} />
                     ))}
-                  </tbody>
-                </table>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Legend & Tools */}
+              <div className="ml-auto mt-auto flex flex-col gap-4 items-end pointer-events-auto">
+                 <div className="bg-zinc-950/80 backdrop-blur-md p-6 rounded-3xl border border-white/5 w-64 shadow-2xl">
+                    <h4 className="text-[10px] font-black uppercase text-zinc-500 mb-4 tracking-widest">Map Legend</h4>
+                    <div className="space-y-3">
+                       <LegendItem color="bg-gradient-to-r from-transparent to-[#4FE172]" label="Existing Network" />
+                       <LegendItem color="bg-gradient-to-r from-transparent to-orange-500" label="High Demand Gap" />
+                       <div className="h-px bg-white/5 my-2"></div>
+                       <div className="text-[10px] text-zinc-500 italic">Analysis based on real-time mobility patterns & historic safety data.</div>
+                    </div>
+                 </div>
               </div>
             </div>
           )}
 
-          {/* ... Pozostałe widoki ... */}
-          {activeTab === 'dashboard' && <div className="text-center py-20 opacity-20 text-4xl font-black">DASHBOARD VIEW</div>}
+          {/* Floating Marker Tool (Simulation) */}
+          {activeTab === 'gap_analysis' && (
+            <div className="absolute top-1/2 left-2/3 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+               <div className="relative">
+                  <div className="w-4 h-4 rounded-full bg-[#4FE172] ring-8 ring-[#4FE172]/20 animate-pulse"></div>
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 bg-zinc-900 border border-[#4FE172]/30 p-4 rounded-2xl shadow-2xl w-48 text-center backdrop-blur-xl">
+                    <p className="text-[10px] text-zinc-500 uppercase font-bold">Connectivity Index</p>
+                    <p className="text-lg font-black text-[#4FE172]">0.12km/km²</p>
+                    <p className="text-[9px] text-red-500 font-bold uppercase mt-1">High Deficiency</p>
+                  </div>
+               </div>
+            </div>
+          )}
         </div>
       </main>
     </div>
   );
 }
 
-// --- REUSABLE COMPONENTS ---
+// --- SUB-COMPONENTS ---
+const GapMetric = ({ label, value, status, sub }) => (
+  <div className={`p-5 rounded-2xl border-l-4 bg-white/5 ${status === 'error' ? 'border-red-500' : 'border-orange-500'}`}>
+    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">{label}</p>
+    <div className="flex items-baseline gap-2">
+       <span className={`text-3xl font-black font-headline ${status === 'error' ? 'text-red-500' : 'text-orange-500'}`}>{value}</span>
+       <span className="text-[10px] font-bold text-zinc-600">{sub}</span>
+    </div>
+  </div>
+);
+
+const ZoneCard = ({ zone }) => (
+  <div className="p-4 bg-zinc-900/50 rounded-2xl border border-white/5 hover:border-[#4FE172]/30 transition-all cursor-pointer group">
+    <div className="flex justify-between items-start mb-3">
+      <h4 className="text-xs font-black text-white group-hover:text-[#4FE172] transition-colors">{zone.name}</h4>
+      <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${zone.status === 'CRITICAL' ? 'bg-red-500/20 text-red-500' : 'bg-orange-500/20 text-orange-500'}`}>
+        {zone.status}
+      </span>
+    </div>
+    <div className="grid grid-cols-2 gap-2">
+      <div className="bg-black/20 p-2 rounded-lg text-center">
+        <p className="text-[8px] text-zinc-500 uppercase font-bold">Potential</p>
+        <p className="text-xs font-black text-[#4FE172]">{zone.potential}</p>
+      </div>
+      <div className="bg-black/20 p-2 rounded-lg text-center">
+        <p className="text-[8px] text-zinc-500 uppercase font-bold">Env. Benefit</p>
+        <p className="text-xs font-black text-[#4FE172]">{zone.co2}</p>
+      </div>
+    </div>
+  </div>
+);
+
 const NavButton = ({ active, onClick, icon, label }) => (
-  <button onClick={onClick} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${active ? 'bg-[#4FE172]/10 text-[#4FE172]' : 'text-zinc-500 hover:text-zinc-200'}`}>
-    {icon} <span className="text-xs font-black uppercase tracking-widest">{label}</span>
+  <button onClick={onClick} className={`flex items-center gap-3 px-6 py-3.5 rounded-2xl transition-all ${active ? 'bg-[#4FE172]/10 text-[#4FE172] border-r-4 border-[#4FE172]' : 'text-zinc-500 hover:text-zinc-200 hover:bg-white/5'}`}>
+    {icon} <span className="text-[10px] font-black uppercase tracking-widest leading-none">{label}</span>
   </button>
 );
 
 const LegendItem = ({ color, label }) => (
-  <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-400 uppercase">
-    <div className={`w-2 h-2 rounded-full ${color}`}></div> {label}
-  </div>
-);
-
-const LinkIssue = ({ title, desc }) => (
-  <div className="p-4 bg-black/20 rounded-xl flex justify-between items-center group cursor-pointer hover:bg-black/40 transition-all">
-    <div>
-      <h5 className="text-xs font-bold text-white mb-0.5">{title}</h5>
-      <p className="text-[10px] text-zinc-500">{desc}</p>
-    </div>
-    <ChevronDown size={14} className="-rotate-90 text-zinc-600 group-hover:text-white" />
+  <div className="flex items-center gap-3">
+    <div className={`w-10 h-1.5 rounded-full ${color}`}></div>
+    <span className="text-[10px] font-bold text-zinc-400 uppercase">{label}</span>
   </div>
 );
 
