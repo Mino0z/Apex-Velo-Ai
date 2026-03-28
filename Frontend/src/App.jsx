@@ -33,15 +33,16 @@ const StatCard = ({ label, value, sub, icon: Icon, color }) => (
 function MapClickHandler({ startPoint, setStartPoint, endPoint, setEndPoint, setPlannedRoute, setCorridorStats }) {
   useMapEvents({
     click(e) {
-      const { lat, lng } = e.latlng;
+      // Upewniamy się, że pobieramy same wartości liczbowe
+      const lat = e.latlng.lat;
+      const lng = e.latlng.lng;
+
       if (!startPoint || (startPoint && endPoint)) {
-        // Jeśli nie ma punktów, lub oba są ustawione – resetujemy i zaczynamy od zera
         setStartPoint([lat, lng]);
         setEndPoint(null);
         setPlannedRoute(null);
         setCorridorStats(null);
-      } else if (!endPoint) {
-        // Jeśli jest tylko początek, ustawiamy koniec
+      } else {
         setEndPoint([lat, lng]);
       }
     }
@@ -95,6 +96,7 @@ export default function App() {
       }
       
       if (response.data?.statistics) {
+		 console.log("Dane z Backend:", response.data.statistics); // <--- TO CI POWIE WSZYSTKO
          setCorridorStats(response.data.statistics);
       }
     } catch (error) {
@@ -214,9 +216,9 @@ export default function App() {
 					 <div>
 						<label className="text-[10px] font-black text-zinc-500 uppercase">Select Routing Points</label>
 						<div className="mt-2 text-xs text-zinc-400 font-mono bg-zinc-950 p-3 rounded-lg border border-white/5">
-						  START: {startPoint ? `[${startPoint[0].toFixed(5)}, ${startPoint[1].toFixed(5)}]` : 'Awaiting click...'}
-                          <br/>
-                          END: {endPoint ? `[${endPoint[0].toFixed(5)}, ${endPoint[1].toFixed(5)}]` : 'Awaiting click...'}
+						  START: {Array.isArray(startPoint) ? `${startPoint[0].toFixed(5)}, ${startPoint[1].toFixed(5)}` : 'Awaiting click...'}
+						  <br/>
+						  END: {Array.isArray(endPoint) ? `${endPoint[0].toFixed(5)}, ${endPoint[1].toFixed(5)}` : 'Awaiting click...'}
 						</div>
                         <p className="text-[10px] text-zinc-500 mt-2">Kliknij na mapę po lewej stronie, aby wyznaczyć punkt A i punkt B.</p>
 					 </div>
@@ -238,11 +240,15 @@ export default function App() {
                    </div>
                    <div className="flex justify-between">
                      <span>Noise Index:</span>
-                     <span className="font-mono text-zinc-200">{corridorStats.avg_noise.toFixed(1)}</span>
+                     <span className="font-mono text-zinc-200">
+					  {corridorStats?.avg_noise ? corridorStats.avg_noise.toFixed(1) : "0.0"}
+					 </span>
                    </div>
                    <div className="flex justify-between">
                      <span>Green Index:</span>
-                     <span className="font-mono text-zinc-200">{corridorStats.avg_green.toFixed(1)}</span>
+                     <span className="font-mono text-zinc-200">
+					  {corridorStats?.avg_green ? corridorStats.avg_green.toFixed(1) : "0.0"}
+					 </span>
                    </div>
                    <div className="flex justify-between">
                      <span>Safety Focus:</span>
