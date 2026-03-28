@@ -16,21 +16,60 @@ DIST = 2000
 
 # ===== WEIGHTS =====
 WEIGHTS = {
-    "green": {"noise": 0.3, "density": 0.2, "green": 0.8, "bike": 0.5},
-    "safe":  {"noise": 0.7, "density": 0.3, "green": 0.4, "bike": 0.6},
-    "fast":  {"noise": 0.1, "density": 0.1, "green": 0.1, "bike": 0.2}
+    "green": {
+        "noise": 0.5,
+        "density": 0.5,
+        "heat": 0.5,
+        "green": 8.0,
+        "poi": 2.0,
+        "tram": 0.5
+    },
+    "safe": {
+        "noise": 8.0,
+        "density": 3.0,
+        "heat": 2.0,
+        "green": 1.0,
+        "poi": 0.5,
+        "tram": 4.0
+    },
+    "fast": {
+        "noise": 0.1,
+        "density": 0.1,
+        "heat": 0.1,
+        "green": 0.1,
+        "poi": 0.1,
+        "tram": 0.1
+    }
 }
 
 # ===== PLANNING WEIGHTS =====
-PLANNING_WEIGHTS = {
-    "noise": 1.5,
-    "density": 1.2,
-    "heat": 2.0,
-    "green": 2.5,
-    "poi": 1.8,
-    "tram": 1.0
-}
 
+PLANNING_MODES = {
+    "green": {
+        "noise": 0.5,
+        "density": 0.5,
+        "heat": 0.5,
+        "green": 5.0,
+        "poi": 1.0,
+        "tram": 0.5
+    },
+    "safe": {
+        "noise": 4.0,
+        "density": 2.0,
+        "heat": 2.0,
+        "green": 1.0,
+        "poi": 0.5,
+        "tram": 3.0
+    },
+    "fast": {
+        "noise": 0.1,
+        "density": 0.1,
+        "heat": 0.1,
+        "green": 0.1,
+        "poi": 0.1,
+        "tram": 0.1
+    }
+}
 
 class RoutingEngine:
 
@@ -190,7 +229,7 @@ class RoutingEngine:
             w["density"] * f["density"] -
             w["green"] * f["green"] -
             w["bike"] * f["bike"] +
-            0.3 * f["length_norm"]
+            0.05 * f["length_norm"]
         )
 
     # =========================
@@ -213,8 +252,9 @@ class RoutingEngine:
     # =========================
     # OUTPUT
     # =========================
-    def _route_to_coords(self, route):
+    def _route_to_coords(self, route, start_point=None, end_point=None):
         coords = []
+
         for u, v in zip(route[:-1], route[1:]):
             edge = list(self.G[u][v].values())[0]
             geom = edge.get("geometry")
@@ -224,30 +264,38 @@ class RoutingEngine:
             else:
                 coords.append((self.G.nodes[u]["x"], self.G.nodes[u]["y"]))
 
+        # 🔥 DODAJ TO:
+        if start_point:
+            coords.insert(0, (start_point[1], start_point[0]))  # (lon, lat)
+
+        if end_point:
+            coords.append((end_point[1], end_point[0]))
+
         return coords
 
     # =========================
     # PLANNING
     # =========================
-    def suggest_new_corridor(self, start_lat, start_lon, end_lat, end_lon):
-
+    def suggest_new_corridor(self, start_lat, start_lon, end_lat, end_lon, mode="green"):
         start_node = ox.distance.nearest_nodes(self.G, start_lon, start_lat)
         end_node = ox.distance.nearest_nodes(self.G, end_lon, end_lat)
+        print(f"🚴 Mode: {mode}")
+        weights = PLANNING_MODES.get(mode, PLANNING_MODES["green"])
 
         def planning_weight(u, v, data):
             f = data.get("features", {})
 
-            overlap_penalty = 10.0 if f.get("bike", 0) > 0 else 0
+            overlap_penalty = 1.0 if f.get("bike", 0) > 0 else 0
 
             cost = (
-                PLANNING_WEIGHTS["noise"] * f.get("noise", 0) +
-                PLANNING_WEIGHTS["heat"] * f.get("heat", 0) +
-                PLANNING_WEIGHTS["density"] * f.get("density", 0) +
-                PLANNING_WEIGHTS["tram"] * f.get("tram_penalty", 0) +
-                overlap_penalty -
-                PLANNING_WEIGHTS["green"] * f.get("green", 0) -
-                PLANNING_WEIGHTS["poi"] * f.get("poi_score", 0) +
-                0.3 * f.get("length_norm", 0)
+                    weights["noise"] * f.get("noise", 0) +
+                    weights["heat"] * f.get("heat", 0) +
+                    weights["density"] * f.get("density", 0) +
+                    weights["tram"] * f.get("tram_penalty", 0) +
+                    overlap_penalty -
+                    weights["green"] * f.get("green", 0) -
+                    weights["poi"] * f.get("poi_score", 0) +
+                    + 0.05 * f.get("length_norm", 0)
             )
             return max(0.01, cost)
 
@@ -283,7 +331,7 @@ class RoutingEngine:
             "Dystans": f"{round(total_len, 1)} m",
             "Udział zieleni": f"{round(green_pct, 1)}%",
             "Średni hałas": f"{round(avg_noise * 100, 1)}%",
-            "Komunikat": "Trasa zoptymalizowana pod komfort, zieleń i unikanie hałasu."
+            "Komunikat": "Trasa zoptymalizowana."
         }
 
     def get_heatmap_data(self, layer_type="noise", grid_size=50):
@@ -343,3 +391,35 @@ class RoutingEngine:
             return heatmap_points
 
         return []
+
+        # =========================
+        # ISTNIEJĄCE ŚCIEŻKI ROWEROWE
+        # =========================
+    def get_existing_bike_paths(self, as_geojson=True):
+            """
+            Zwraca wszystkie istniejące ścieżki rowerowe w obszarze grafu.
+            as_geojson: True -> zwróci GeoJSON do frontendu
+                        False -> zwróci listę współrzędnych [(lat, lon), ...]
+            """
+            edges = ox.graph_to_gdfs(self.G, nodes=False)
+
+            # Filtracja typowych dróg rowerowych z OSM
+            bike_edge_types = ["cycleway", "path", "track", "residential",
+                               "living_street"]
+            if "highway" in edges.columns:
+                edges = edges[edges["highway"].isin(bike_edge_types)]
+
+            # Konwersja do WGS84
+            edges = edges.to_crs("EPSG:4326")
+
+            if as_geojson:
+                return edges.to_json()
+            else:
+                paths = []
+                for geom in edges.geometry:
+                    if geom.geom_type == "LineString":
+                        paths.append(list(geom.coords))
+                    elif geom.geom_type == "MultiLineString":
+                        for line in geom.geoms:
+                            paths.append(list(line.coords))
+                return paths
