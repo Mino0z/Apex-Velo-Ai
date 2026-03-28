@@ -33,15 +33,36 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showHeatmap, setShowHeatmap] = useState(true);
   const [plannedRoute, setPlannedRoute] = useState(null);
+  const [routeStats, setRouteStats] = useState(null); // Nowy stan na statystyki z AI
+  const [isLoading, setIsLoading] = useState(false); // Stan ładowania
 
-  const handleGenerateRoute = () => {
-    // Przykładowe punkty trasy w Krakowie
-    const krakowRoute = [
-      [50.061, 19.936],
-      [50.065, 19.940],
-      [50.068, 19.945]
-    ];
-    setPlannedRoute(krakowRoute);
+  const handleGenerateRoute = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('http://localhost:8000/suggest-corridor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          start_lat: 50.061, // Możesz tu potem podpiąć zmienne z markerów
+          start_lon: 19.936,
+          end_lat: 50.067,
+          end_lon: 19.955
+        }),
+      });
+
+      if (!response.ok) throw new Error('Błąd silnika AI');
+
+      const data = await response.json();
+      
+      // Backend zwraca [lat, lon], Leaflet to rozumie jako positions
+      setPlannedRoute(data.geometry.coordinates);
+      setRouteStats(data.statistics);
+    } catch (error) {
+      console.error("Connection error:", error);
+      alert("AI Engine is offline. Start your FastAPI server!");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Funkcja sterująca treścią (to tutaj naprawiliśmy "pusty ekran")
@@ -120,40 +141,62 @@ export default function App() {
         );
 
       case 'planner':
-		  return (
-			<div className="flex gap-6 h-[75vh] animate-in slide-in-from-right-4 duration-500">
-			   <div className="w-80 bg-zinc-900/50 p-6 rounded-[2rem] border border-white/5">
-				  <h3 className="text-sm font-black uppercase tracking-widest text-zinc-400 mb-6">Route Settings</h3>
-				  <div className="space-y-6">
-					 <div>
-						<label className="text-[10px] font-black text-zinc-500 uppercase">Safety Preference</label>
-						<input type="range" className="w-full accent-[#4FE172] mt-2" />
-					 </div>
-					 {/* DODALIŚMY onClick TUTAJ: */}
-					 <button 
-						onClick={handleGenerateRoute}
-						className="w-full py-4 bg-[#4FE172] text-[#003913] font-black rounded-xl uppercase text-[10px] mt-8 hover:brightness-110 active:scale-95 transition-all"
-					 >
-						Generate Optimal Route
-					 </button>
-				  </div>
-			   </div>
-			   <div className="flex-1 bg-zinc-950 rounded-[2rem] border border-white/5 overflow-hidden">
-				  <MapContainer center={[50.061, 19.936]} zoom={14} zoomControl={false} className="h-full w-full grayscale brightness-75">
-					 <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
-					 
-					 {/* WYŚWIETLANIE TRASY JEŚLI ISTNIEJE: */}
-					 {plannedRoute && (
-						<>
-						   <Polyline positions={plannedRoute} color="#4FE172" weight={5} opacity={0.8} dashArray="10, 10" />
-						   <Marker position={plannedRoute[0]} />
-						   <Marker position={plannedRoute[plannedRoute.length - 1]} />
-						</>
-					 )}
-				  </MapContainer>
-			   </div>
-			</div>
-		  );
+        return (
+          <div className="flex gap-6 h-[75vh] animate-in slide-in-from-right-4 duration-500">
+            <div className="w-80 bg-zinc-900/50 p-6 rounded-[2rem] border border-white/5 flex flex-col">
+              <h3 className="text-sm font-black uppercase tracking-widest text-zinc-400 mb-6">Route Settings</h3>
+              
+              <div className="space-y-6 flex-grow">
+                <div>
+                  <label className="text-[10px] font-black text-zinc-500 uppercase">Safety Preference</label>
+                  <input type="range" className="w-full accent-[#4FE172] mt-2" />
+                </div>
+                
+                {/* DYNAMICZNE STATYSTYKI Z AI */}
+                {routeStats && (
+                  <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
+                    <div className="p-3 bg-white/5 rounded-xl border border-white/5">
+                      <p className="text-[9px] text-zinc-500 uppercase font-black">Distance</p>
+                      <p className="text-lg font-bold text-[#4FE172]">{routeStats.Dystans}</p>
+                    </div>
+                    <div className="p-3 bg-white/5 rounded-xl border border-white/5">
+                      <p className="text-[9px] text-zinc-500 uppercase font-black">Greenery</p>
+                      <p className="text-lg font-bold text-emerald-400">{routeStats["Udział zieleni"]}</p>
+                    </div>
+                    <div className="p-3 bg-white/5 rounded-xl border border-white/5">
+                      <p className="text-[9px] text-zinc-500 uppercase font-black">Avg. Noise</p>
+                      <p className="text-lg font-bold text-yellow-500">{routeStats["Średni hałas"]}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <button 
+                onClick={handleGenerateRoute}
+                disabled={isLoading}
+                className={`w-full py-4 ${isLoading ? 'bg-zinc-700' : 'bg-[#4FE172]'} text-[#003913] font-black rounded-xl uppercase text-[10px] mt-8 hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2`}
+              >
+                {isLoading ? <Zap className="animate-spin" size={14}/> : <MousePointer2 size={14}/>}
+                {isLoading ? "AI is Calculating..." : "Generate Optimal Route"}
+              </button>
+            </div>
+
+            <div className="flex-1 bg-zinc-950 rounded-[2rem] border border-white/5 overflow-hidden">
+              <MapContainer center={[50.0647, 19.9450]} zoom={14} zoomControl={false} className="h-full w-full grayscale brightness-75">
+                <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+                
+                {plannedRoute && (
+                  <>
+                    <Polyline positions={plannedRoute} color="#4FE172" weight={6} opacity={0.9} />
+                    {/* Markery dla startu i końca */}
+                    <Circle center={plannedRoute[0]} radius={20} pathOptions={{color: '#4FE172', fillColor: '#4FE172', fillOpacity: 1}} />
+                    <Circle center={plannedRoute[plannedRoute.length - 1]} radius={20} pathOptions={{color: '#fff', fillColor: '#fff', fillOpacity: 1}} />
+                  </>
+                )}
+              </MapContainer>
+            </div>
+          </div>
+        );
 
       case 'analytics':
         return (
