@@ -32,6 +32,17 @@ const StatCard = ({ label, value, sub, icon: Icon, color }) => (
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showHeatmap, setShowHeatmap] = useState(true);
+  const [plannedRoute, setPlannedRoute] = useState(null);
+
+  const handleGenerateRoute = () => {
+    // Przykładowe punkty trasy w Krakowie
+    const krakowRoute = [
+      [50.061, 19.936],
+      [50.065, 19.940],
+      [50.068, 19.945]
+    ];
+    setPlannedRoute(krakowRoute);
+  };
 
   // Funkcja sterująca treścią (to tutaj naprawiliśmy "pusty ekran")
   const renderContent = () => {
@@ -109,25 +120,40 @@ export default function App() {
         );
 
       case 'planner':
-        return (
-          <div className="flex gap-6 h-[75vh] animate-in slide-in-from-right-4 duration-500">
-             <div className="w-80 bg-zinc-900/50 p-6 rounded-[2rem] border border-white/5">
-                <h3 className="text-sm font-black uppercase tracking-widest text-zinc-400 mb-6">Route Settings</h3>
-                <div className="space-y-6">
-                   <div>
-                      <label className="text-[10px] font-black text-zinc-500 uppercase">Safety Preference</label>
-                      <input type="range" className="w-full accent-[#4FE172] mt-2" />
-                   </div>
-                   <button className="w-full py-4 bg-[#4FE172] text-[#003913] font-black rounded-xl uppercase text-[10px] mt-8">Generate Optimal Route</button>
-                </div>
-             </div>
-             <div className="flex-1 bg-zinc-950 rounded-[2rem] border border-white/5 overflow-hidden">
-                <MapContainer center={[50.061, 19.936]} zoom={14} zoomControl={false} className="h-full w-full grayscale brightness-75">
-                   <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
-                </MapContainer>
-             </div>
-          </div>
-        );
+		  return (
+			<div className="flex gap-6 h-[75vh] animate-in slide-in-from-right-4 duration-500">
+			   <div className="w-80 bg-zinc-900/50 p-6 rounded-[2rem] border border-white/5">
+				  <h3 className="text-sm font-black uppercase tracking-widest text-zinc-400 mb-6">Route Settings</h3>
+				  <div className="space-y-6">
+					 <div>
+						<label className="text-[10px] font-black text-zinc-500 uppercase">Safety Preference</label>
+						<input type="range" className="w-full accent-[#4FE172] mt-2" />
+					 </div>
+					 {/* DODALIŚMY onClick TUTAJ: */}
+					 <button 
+						onClick={handleGenerateRoute}
+						className="w-full py-4 bg-[#4FE172] text-[#003913] font-black rounded-xl uppercase text-[10px] mt-8 hover:brightness-110 active:scale-95 transition-all"
+					 >
+						Generate Optimal Route
+					 </button>
+				  </div>
+			   </div>
+			   <div className="flex-1 bg-zinc-950 rounded-[2rem] border border-white/5 overflow-hidden">
+				  <MapContainer center={[50.061, 19.936]} zoom={14} zoomControl={false} className="h-full w-full grayscale brightness-75">
+					 <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+					 
+					 {/* WYŚWIETLANIE TRASY JEŚLI ISTNIEJE: */}
+					 {plannedRoute && (
+						<>
+						   <Polyline positions={plannedRoute} color="#4FE172" weight={5} opacity={0.8} dashArray="10, 10" />
+						   <Marker position={plannedRoute[0]} />
+						   <Marker position={plannedRoute[plannedRoute.length - 1]} />
+						</>
+					 )}
+				  </MapContainer>
+			   </div>
+			</div>
+		  );
 
       case 'analytics':
         return (
