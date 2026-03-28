@@ -17,18 +17,18 @@ def draw_map():
 
     # 3. Tworzenie mapy Folium (środek na trasie)
     # DARK MODE
-    # m = folium.Map(
-    #     location=[50.0617, 19.9373],
-    #     zoom_start=15,
-    #     tiles='CartoDB dark_matter'
-    # )
-
-    # LIGHT MODE
     m = folium.Map(
         location=[50.0617, 19.9373],
         zoom_start=15,
-        tiles='CartoDB positron'
+        tiles='CartoDB dark_matter'
     )
+
+    # LIGHT MODE
+    # m = folium.Map(
+    #     location=[50.0617, 19.9373],
+    #     zoom_start=15,
+    #     tiles='CartoDB positron'
+    # )
 
     # 4. Rysowanie trasy (Uwaga: Folium przyjmuje [lat, lon], a OSMnx zwraca [lon, lat])
     route_latlon = [(p[1], p[0]) for p in route_coords]

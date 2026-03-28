@@ -4,14 +4,15 @@ import networkx as nx
 import osmnx as ox
 import geopandas as gpd
 import numpy as np
-from shapely.geometry import Point
+import pandas as pd
+from shapely.ops import unary_union
 
 # ===== CONFIG =====
 CACHE_DIR = "cache"
-GRAPH_FILE = os.path.join(CACHE_DIR, "graph.pkl")
+GRAPH_FILE = os.path.join(CACHE_DIR, "graph.pkl")  # wersjonowanie cache
 
 KRAKOW_CENTER = (50.0647, 19.9450)
-DIST = 1000  # meters (decrease if slow)
+DIST = 1000
 
 # ===== WEIGHTS =====
 WEIGHTS = {
@@ -20,13 +21,22 @@ WEIGHTS = {
     "fast":  {"noise": 0.1, "density": 0.1, "green": 0.1, "bike": 0.2}
 }
 
+# ===== PLANNING WEIGHTS =====
+PLANNING_WEIGHTS = {
+    "noise": 1.5,
+    "density": 1.2,
+    "heat": 2.0,
+    "green": 2.5,
+    "poi": 1.8,
+    "tram": 1.0
+}
+
 
 class RoutingEngine:
 
     def __init__(self, local_data, osm_data=None):
         self.local_data = local_data
         self.osm_data = osm_data
-
         os.makedirs(CACHE_DIR, exist_ok=True)
 
         if os.path.exists(GRAPH_FILE):
@@ -46,182 +56,158 @@ class RoutingEngine:
     # GRAPH
     # =========================
     def _build_graph(self):
-        G = ox.graph_from_point(KRAKOW_CENTER, dist=DIST, network_type="bike")
-        #G = ox.simplify_graph(G)
-        return G
+        return ox.graph_from_point(KRAKOW_CENTER, dist=DIST, network_type="bike")
+
+    def _ensure_crs(self, gdf, target_crs):
+        if gdf.crs is None:
+            raise ValueError("GeoDataFrame has no CRS!")
+
+        if gdf.crs != target_crs:
+            return gdf.to_crs(target_crs)
+        return gdf
 
     # =========================
-    # FEATURE ENGINEERING
+    # ENRICHMENT
     # =========================
-    # def _enrich_graph(self):
-    #     edges = ox.graph_to_gdfs(self.G, nodes=False)
-    #
-    #     # Spatial index (CRUCIAL for performance)
-    #     noise_sindex = self.local_data.noise_map_df.sindex
-    #     green_sindex = self.local_data.greenery_df.sindex
-    #
-    #     # --- Noise ---
-    #     def get_noise(geom):
-    #         possible = list(noise_sindex.intersection(geom.bounds))
-    #         subset = self.local_data.noise_map_df.iloc[possible]
-    #         matches = subset[subset.intersects(geom)]
-    #         if len(matches) == 0:
-    #             return 0
-    #         return matches["isov1"].mean()
-    #
-    #     # --- Green ---
-    #     def get_green(geom):
-    #         possible = list(green_sindex.intersection(geom.bounds))
-    #         subset = self.local_data.greenery_df.iloc[possible]
-    #         return int(subset.intersects(geom).any())
-    #
-    #     # --- Density ---
-    #     buildings = self.osm_data.buildings_df if self.osm_data else None
-    #
-    #     def get_density(geom):
-    #         if buildings is None:
-    #             return 0
-    #         buffer = geom.buffer(40)
-    #         return buildings.intersects(buffer).sum()
-    #
-    #     # --- Bike path ---
-    #     bike_paths = self.local_data.cycling_paths_df
-    #
-    #     def is_bike_path(geom):
-    #         return int(bike_paths.intersects(geom).any())
-    #
-    #     print("⏳ Computing features (this may take a few minutes once)...")
-    #
-    #     edges["noise"] = edges.geometry.apply(get_noise)
-    #     edges["green"] = edges.geometry.apply(get_green)
-    #     edges["density"] = edges.geometry.apply(get_density)
-    #     edges["bike"] = edges.geometry.apply(is_bike_path)
-    #
-    #     # Normalize (important!)
-    #     edges["noise"] = edges["noise"] / (edges["noise"].max() + 1e-6)
-    #     edges["density"] = edges["density"] / (edges["density"].max() + 1e-6)
-    #
-    #     # Attach back to graph
-    #     for (u, v, k), row in edges.iterrows():
-    #         self.G[u][v][k]["features"] = {
-    #             "noise": row["noise"],
-    #             "green": row["green"],
-    #             "density": row["density"],
-    #             "bike": row["bike"],
-    #             "length": row["length"]
-    #         }
-
     def _enrich_graph(self):
-        # 1. Konwersja grafu na krawędzie
+        print("⏳ Enriching graph with robust spatial joins...")
+
+        # 1. Przygotowanie danych krawędzi
         edges = ox.graph_to_gdfs(self.G, nodes=False)
-        buildings = self.osm_data.buildings_df if self.osm_data else None
+        # Standardowy układ metryczny dla Polski (PUWG 1992)
+        WORKING_CRS = "EPSG:2180"
 
-        print(
-            "⏳ Computing features (using safe spatial joins & deduplication)...")
+        # Tworzymy kopię metryczną z buforem 1m dla pewności przecięć
+        edges_m = edges.to_crs(WORKING_CRS)
+        edges_poly = edges_m.copy()
+        edges_poly["geometry"] = edges_m.geometry.buffer(1.0)
 
-        # --- GĘSTOŚĆ (Density) ---
-        edges["density"] = 0
-        if buildings is not None and not buildings.empty:
-            edges_projected = edges.to_crs(epsg=2178)
-            buildings_projected = buildings.to_crs(epsg=2178)
+        # Inicjalizacja kolumn
+        for col in ["green", "noise", "density", "heat", "tram_penalty",
+                    "poi_score", "bike"]:
+            edges[col] = 0.0
 
-            edges_poly = edges_projected.copy()
-            edges_poly["geometry"] = edges_projected.geometry.buffer(40)
+        # =========================
+        # 🌳 GREENERY (EPSG:2180)
+        # =========================
+        if not self.local_data.greenery_df.empty:
+                green = self.local_data.greenery_df.to_crs(WORKING_CRS)
+                temp_edges = edges_poly.reset_index()
 
-            joined = gpd.sjoin(buildings_projected, edges_poly, how="inner",
+                joined = gpd.sjoin(temp_edges, green, how="left",
+                                   predicate="intersects")
+
+                # Sprawdzamy, które wiersze mają przypisany obiekt zieleni
+                # index_right pojawia się tylko w joinie 'left'/'right', ale bezpieczniej
+                # jest sprawdzić dowolną kolumnę z ramki 'green' (np. pierwszą)
+                green_col = green.columns[0]
+                has_green = joined[~joined[green_col].isna()]
+
+                if not has_green.empty:
+                    # Zaznaczamy krawędzie, które mają choć trochę zieleni
+                    green_marks = has_green.groupby(['u', 'v', 'key']).size()
+                    edges["green"] = (green_marks > 0).astype(float).reindex(
+                        edges.index, fill_value=0)
+
+        # =========================
+        # 🔊 NOISE (EPSG:2178 -> 2180)
+        # =========================
+        if not self.local_data.noise_map_df.empty:
+            noise = self.local_data.noise_map_df.to_crs(WORKING_CRS)
+            joined = gpd.sjoin(edges_poly, noise, how="left",
                                predicate="intersects")
 
-            if not joined.empty and "index_right" in joined.columns:
-                # Grupujemy po index_right i liczymy unikalne budynki
-                density_counts = joined.groupby("index_right").size()
-                edges["density"] = density_counts.reindex(edges.index,
-                                                          fill_value=0)
+            # Szukamy kolumny z wartością hałasu (isov1, isophone, itp.)
+            noise_col = next((c for c in joined.columns if
+                              "iso" in c.lower() or "noise" in c.lower()),
+                             None)
 
-        # --- ZIELEŃ (Green) ---
-        edges["green"] = 0
-        if not self.local_data.greenery_df.empty:
-            green_data = self.local_data.greenery_df.to_crs(edges.crs)
-            green_joined = gpd.sjoin(edges, green_data, how="left",
-                                     predicate="intersects")
+            if noise_col:
+                # Konwersja na liczby i średnia dla krawędzi
+                joined[noise_col] = pd.to_numeric(joined[noise_col],
+                                                  errors='coerce')
+                noise_stats = joined.groupby(level=[0, 1, 2])[noise_col].mean()
+                edges["noise"] = noise_stats.reindex(edges.index, fill_value=0)
+                if edges["noise"].max() > 0:
+                    edges["noise"] /= edges["noise"].max()
 
-            if "index_right" in green_joined.columns:
-                # Usuwamy duplikaty indeksów przed przypisaniem
-                has_green = ~green_joined['index_right'].isna()
-                # Wybieramy tylko te wiersze, które faktycznie mają zieleń i bierzemy max (1/0) na indeks
-                green_series = has_green.groupby(level=0).max().astype(int)
-                edges["green"] = green_series.reindex(edges.index,
-                                                      fill_value=0)
+        # =========================
+        # 🏢 DENSITY (Budynki z OSM)
+        # =========================
+        if self.osm_data and not self.osm_data.buildings_df.empty:
+                    buildings = self.osm_data.buildings_df.to_crs(WORKING_CRS)
 
-        # --- HAŁAS (Noise) ---
-        noise_sindex = self.local_data.noise_map_df.sindex
+                    # KLUCZOWY FIX: reset_index() sprawia, że u, v, key stają się zwykłymi kolumnami
+                    temp_edges = edges_poly.reset_index()
 
-        def get_noise(geom):
-            possible = list(noise_sindex.intersection(geom.bounds))
-            subset = self.local_data.noise_map_df.iloc[possible]
-            matches = subset[subset.intersects(geom)]
-            return matches["isov1"].mean() if len(matches) > 0 else 0
+                    # Robimy sjoin: sprawdzamy, które budynki są w buforze krawędzi
+                    joined = gpd.sjoin(buildings, temp_edges, how="inner",
+                                       predicate="intersects")
 
-        edges["noise"] = edges.geometry.apply(get_noise)
+                    if not joined.empty:
+                        # Grupujemy po oryginalnych kolumnach indeksu (u, v, key)
+                        density = joined.groupby(['u', 'v', 'key']).size()
 
-        # --- ŚCIEŻKI ROWEROWE (Bike) ---
-        edges["bike"] = 0
-        if not self.local_data.cycling_paths_df.empty:
-            bike_data = self.local_data.cycling_paths_df.to_crs(edges.crs)
-            bike_joined = gpd.sjoin(edges, bike_data, how="left",
-                                    predicate="intersects")
+                        # Przypisujemy wyniki z powrotem do głównej ramki edges
+                        # Reindex sprawi, że krawędzie bez budynków dostaną 0
+                        edges["density"] = density.reindex(edges.index,
+                                                           fill_value=0)
 
-            if "index_right" in bike_joined.columns:
-                has_bike = ~bike_joined['index_right'].isna()
-                bike_series = has_bike.groupby(level=0).max().astype(int)
-                edges["bike"] = bike_series.reindex(edges.index, fill_value=0)
+                        if edges["density"].max() > 0:
+                            edges["density"] /= edges["density"].max()
 
-        # --- NORMALIZACJA I ZAPIS ---
-        edges["noise"] = edges["noise"] / (edges["noise"].max() + 1e-6)
-        edges["density"] = edges["density"] / (edges["density"].max() + 1e-6)
+        # =========================
+        # reszta cech (tramwaje, stojaki, bike) - analogicznie z to_crs(WORKING_CRS)
+        # =========================
+        # (Tutaj dodaj swoją logikę dla tram_penalty i poi_score używając WORKING_CRS)
 
+        # 🌡️ HEAT PROXY
+        edges["heat"] = (edges["density"] - 0.7 * edges["green"]).clip(lower=0)
+        if edges["heat"].max() > 0:
+            edges["heat"] /= edges["heat"].max()
+
+        # Normalizacja długości
+        edges["length_norm"] = edges["length"] / edges["length"].max()
+
+        # PRZYPISANIE DO GRAFU
+        print(
+            f"📊 Stats: Green > 0: {len(edges[edges['green'] > 0])}, Noise > 0: {len(edges[edges['noise'] > 0])}")
+
+        feat_cols = ["noise", "green", "density", "heat", "tram_penalty",
+                     "poi_score", "bike", "length_norm"]
         for (u, v, k), row in edges.iterrows():
-            self.G[u][v][k]["features"] = {
-                "noise": row["noise"],
-                "green": row["green"],
-                "density": row["density"],
-                "bike": row["bike"],
-                "length": row["length"]
-            }
-        print("✅ Features computed successfully!")
+            self.G[u][v][k]["features"] = row[feat_cols].to_dict()
+            self.G[u][v][k]["features"]["length"] = row["length"]
+
+        print("✅ Graph enrichment complete.")
 
     # =========================
-    # COST FUNCTION
+    # COST
     # =========================
-    def _cost(self, features, weights):
+    def _cost(self, f, w):
         return (
-            weights["noise"] * features["noise"] +
-            weights["density"] * features["density"] -
-            weights["green"] * features["green"] -
-            weights["bike"] * features["bike"] +
-            0.1 * features["length"] / 1000  # slight distance penalty
+            w["noise"] * f["noise"] +
+            w["density"] * f["density"] -
+            w["green"] * f["green"] -
+            w["bike"] * f["bike"] +
+            0.3 * f["length_norm"]
         )
 
     # =========================
     # ROUTING
     # =========================
     def compute_route(self, start_lat, start_lon, end_lat, end_lon, mode="green"):
-
         weights = WEIGHTS.get(mode, WEIGHTS["green"])
 
         start = ox.distance.nearest_nodes(self.G, start_lon, start_lat)
         end = ox.distance.nearest_nodes(self.G, end_lon, end_lat)
 
         def weight(u, v, data):
-            # SPRAWDZAMY CZY KRAWĘDŹ MA NASZE CECHY
             if "features" in data:
                 return self._cost(data["features"], weights)
-
-            # Jeśli krawędź nie ma cech (np. błąd grafu), zwracamy długość w km
-            # jako domyślny, neutralny koszt
             return data.get("length", 100) / 1000
 
         route = nx.shortest_path(self.G, start, end, weight=weight)
-
         return self._route_to_coords(route)
 
     # =========================
@@ -229,7 +215,6 @@ class RoutingEngine:
     # =========================
     def _route_to_coords(self, route):
         coords = []
-
         for u, v in zip(route[:-1], route[1:]):
             edge = list(self.G[u][v].values())[0]
             geom = edge.get("geometry")
@@ -240,3 +225,63 @@ class RoutingEngine:
                 coords.append((self.G.nodes[u]["x"], self.G.nodes[u]["y"]))
 
         return coords
+
+    # =========================
+    # PLANNING
+    # =========================
+    def suggest_new_corridor(self, start_lat, start_lon, end_lat, end_lon):
+
+        start_node = ox.distance.nearest_nodes(self.G, start_lon, start_lat)
+        end_node = ox.distance.nearest_nodes(self.G, end_lon, end_lat)
+
+        def planning_weight(u, v, data):
+            f = data.get("features", {})
+
+            overlap_penalty = 10.0 if f.get("bike", 0) > 0 else 0
+
+            cost = (
+                PLANNING_WEIGHTS["noise"] * f.get("noise", 0) +
+                PLANNING_WEIGHTS["heat"] * f.get("heat", 0) +
+                PLANNING_WEIGHTS["density"] * f.get("density", 0) +
+                PLANNING_WEIGHTS["tram"] * f.get("tram_penalty", 0) +
+                overlap_penalty -
+                PLANNING_WEIGHTS["green"] * f.get("green", 0) -
+                PLANNING_WEIGHTS["poi"] * f.get("poi_score", 0) +
+                0.3 * f.get("length_norm", 0)
+            )
+            return max(0.01, cost)
+
+        route = nx.shortest_path(self.G, start_node, end_node, weight=planning_weight)
+        return route, self.get_route_stats(route)
+
+    # =========================
+    # STATS
+    # =========================
+    def get_route_stats(self, route):
+        total_len = 0
+        green_len = 0
+        noise_values = []
+
+        for u, v in zip(route[:-1], route[1:]):
+            edge_data = self.G.get_edge_data(u, v)
+            if edge_data:
+                data = list(edge_data.values())[0]
+                f = data.get("features", {})
+
+                length = data.get("length", 0)
+                total_len += length
+
+                if f.get("green", 0) > 0:
+                    green_len += length
+
+                noise_values.append(f.get("noise", 0))
+
+        avg_noise = sum(noise_values) / len(noise_values) if noise_values else 0
+        green_pct = (green_len / total_len * 100) if total_len > 0 else 0
+
+        return {
+            "Dystans": f"{round(total_len, 1)} m",
+            "Udział zieleni": f"{round(green_pct, 1)}%",
+            "Średni hałas": f"{round(avg_noise * 100, 1)}%",
+            "Komunikat": "Trasa zoptymalizowana pod komfort, zieleń i unikanie hałasu."
+        }
