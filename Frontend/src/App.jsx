@@ -98,7 +98,7 @@ export default function App() {
 
   const [bikePaths, setBikePaths] = useState([]); // 🌟 stan ścieżek rowerowych
 
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+  const API_URL = import.meta.env.VITE_API_URL || "https://apexveloaiserver-cpenbgcrexbke9b9.germanywestcentral-01.azurewebsites.net";
 
   // 🔥 HEATMAP FETCH
   const fetchHeatmap = async () => {
