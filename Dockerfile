@@ -13,6 +13,14 @@ RUN apt-get update && apt-get install -y \
 # pip upgrade
 RUN pip install --upgrade pip
 
+RUN apt-get update && apt-get install -y \
+    gdal-bin \
+    libgdal-dev \
+    libspatialindex-dev \
+    libgeos-dev \
+    build-essential \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
 # tylko requirements (cache layer!)
 COPY requirements.txt .
 
